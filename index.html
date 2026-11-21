@@ -169,7 +169,7 @@ $("save").onclick=()=>{ytKey=$("yt").value.trim();store.set("g_yt",ytKey);gkey=$
 
 /* ---- Hatırlatma ---- */
 function parseRem(t){
- const s0=t.toLocaleLowerCase("tr-TR");if(!/hatırlat|hatirlat|alarm/.test(s0))return null;
+ const s0=t.toLocaleLowerCase("tr-TR");if(!/hatırlat|hatirlat|alarm|beni ara|beni arayıp|beni arayip|beni arasana|beni çaldır/.test(s0))return null;
  const NUM={bir:1,iki:2,"üç":3,uc:3,"dört":4,dort:4,"beş":5,bes:5,altı:6,alti:6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,"on bes":15,yirmi:20,"yirmi beş":25,otuz:30,kırk:40,kirk:40,"kırk beş":45,elli:50,altmış:60,doksan:90};
  let s=s0.replace(/yarım saat/g,"30 dakika").replace(/çeyrek saat/g,"15 dakika").replace(/bir buçuk saat/g,"90 dakika").replace(/(\d+)\s*buçuk\s*saat/g,(x,n)=>(n*60+30)+" dakika");
  Object.keys(NUM).sort((a,b)=>b.length-a.length).forEach(w=>{s=s.replace(new RegExp("(^|\\s)"+w+"\\s+(saniye|dakika|saat)","g"),(x,p,u)=>p+NUM[w]+" "+u)});
@@ -177,7 +177,7 @@ function parseRem(t){
  if(m=s.match(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/)){const n=+m[1],u=m[2];at=Date.now()+n*(u==="saat"?3600e3:(u==="saniye"||u==="sn")?1e3:60e3)}
  else if(m=s.match(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*(\d{1,2})(?:[:.](\d{2}))?/)){let h=+m[3];if(/akşam|aksam/.test(m[2]||"")&&h<12)h+=12;const d=new Date();d.setHours(h,+(m[4]||0),0,0);if(m[1])d.setDate(d.getDate()+1);else if(d<=Date.now())d.setDate(d.getDate()+1);at=+d}
  if(!at)return {err:true};
- let what=s.replace(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/,"").replace(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*\d{1,2}([:.]\d{2})?('?(de|da|te|ta))?/,"").replace(/(diye\s*)?(bana\s*)?(hatırlat|hatirlat|alarm kur)\S*/,"");
+ let what=s.replace(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/,"").replace(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*\d{1,2}([:.]\d{2})?('?(de|da|te|ta))?/,"").replace(/(diye\s*)?(bana\s*)?(hatırlat|hatirlat|alarm kur)\S*/,"").replace(/(ve\s+)?beni\s+(ara\S*|çaldır\S*)(\s+(ve|da|de))?/g," ").replace(/(\S+)m\s+gerektiğini/g,"$1n gerekiyor").replace(/(\S+)m\s+lazım/g,"$1n lazım").replace(/\bben(im)?\b/g,"");
  what=what.replace(/^(\s*(evet|tamam|başka bir şey var|baska bir sey var|bir şey daha|bir de|ayrıca|bunu da|şunu da|sunu da|şunu|sunu|patron|gandalf|lütfen|lutfen|var|bana)\b[,.]?)+/,"").replace(/\s+/g," ").trim();
  return {at,what:what||"Zamanı geldi"}}
 function renderRem(){const u=$("rem");u.innerHTML="";
@@ -714,7 +714,6 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
  addEventListener("pointermove",e=>{const x=e.clientX/innerWidth-.5,y=e.clientY/innerHeight-.5;fc.style.setProperty("--ry",(x*14)+"deg");fc.style.setProperty("--rx",(-y*10)+"deg")});
  if(im.complete&&im.naturalWidth)go();else im.onload=go})();
 </script>
-<script>
 /* ==== Gandalf Android uygulaması köprüsü (sadece uygulama içinde çalışır) ==== */
 (function(){
 if(!window.Android)return;
@@ -1110,8 +1109,20 @@ if(typeof A.googleAsk==="function"){
  $("gopen").onclick=()=>{window.__gWarned=0;A.googleOpen("")};
 }
 
-})();
 
-</script>
+/* ---------- Uyandırma: "Buradayım patron"; cevap yoksa arar ---------- */
+let wakeWait=0;
+const keep=on=>{try{A.keepListen&&A.keepListen(on)}catch(e){}};
+window.nativeWake=()=>{hush();wakeWait=1;keep(true);$("cap").textContent="Buradayım patron";say("Buradayım patron, buyur.",()=>A.listen())};
+const wakeAgain=()=>{
+ if(wakeWait<2){wakeWait++;say("Patron, buradayım. Duyuyor musun?",()=>A.listen());return true}
+ wakeWait=0;keep(false);
+ if(typeof A.wakeCall==="function"){say("Cevap gelmedi, seni arıyorum patron.",()=>A.wakeCall())}
+ else say("Tamam patron, ihtiyacın olursa Gandalf de.");
+ return true};
+const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return wakeAgain();return _wns()};
+const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
+const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeWait=0;keep(false)}return _wr(t)};
+})();
 </body>
 </html>
