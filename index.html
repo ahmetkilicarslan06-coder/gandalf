@@ -1215,6 +1215,7 @@ if(typeof A.setClap==="function"){
 /* ---------- İş hesabı yokken: bildirim + ekrandan okuma ---------- */
 const sw={};let sn=0;
 window.nativeScreen=(id,st,j)=>{const f=sw[id];delete sw[id];if(f)f({st,j})};
+window.nativeOwa=window.nativeScreen;
 function screenRead(app){return new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;A.screenRead(id,app);setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},20000)})}
 async function localMail(t,s,app){
  const send=/(gönder|yaz\b|yazsana|cevap ver|yanıtla|\bat\b|atsana)/.test(s)&&!/(ne yaz|oku|okunmam)/.test(s);
@@ -1233,6 +1234,17 @@ async function localMail(t,s,app){
   if(tm){let k=tm[1].replace(/^(en son|son|şu|bu|bir|o|outlook'?ta|outlookta|gelen|okunmamış|yeni)\s+/ig,"").trim();
    if(k&&!/^(okunmamış|gelen|yeni|son|en son|tüm|bütün|bugünkü|dünkü)$/i.test(k)&&k.length>=3)who=k}}
  const askFrom=/(kimden|kim gönder|kim atmış|kim yollamış)/.test(s);
+ // Web Outlook (giriş yapıldıysa ya da ilk deneme): Outlook uygulamasını açmadan okur
+ if(app==="Outlook"&&typeof A.owaList==="function"){
+  setSt(who?"Web Outlook'ta "+who+" aranıyor…":"Web Outlook'a bakıyorum…");
+  const r=await new Promise(ok=>{const id="o"+(++sn);sw[id]=x=>ok(x);A.owaList(id,who);setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},40000)});
+  if(r.st==="login"){tell("Patron, web Outlook'a bir kez giriş yapman gerekiyor. Giriş ekranını açıyorum. İş hesabınla gir, gelen kutusu görününce geri tuşuna bas, sonra bana tekrar sor.");setTimeout(()=>A.owaLogin(),2500);return}
+  if(r.st==="ok"){let its=[];try{its=JSON.parse(r.j).items||[]}catch(e){}
+   const items0=its.map(x=>({u:!!x.u,i:x.i,p:(x.p||[]).filter(q=>q&&!/^(okunmadı|okunmamış|unread|\d+)$/i.test(q))})).filter(x=>x.p.length);
+   if(items0.length){return localList(t,s,app,who,askFrom,items0,true,true)}}
+  // olmadıysa ekrandan okumayı dene
+ }
+
  setSt(app+(who?" içinde "+who+" aranıyor…":" açılıyor, bakıyorum…"));
  const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
   if(typeof A.screenFind==="function")A.screenFind(id,app==="Teams"?"teams":"outlook",who);else A.screenRead(id,app==="Teams"?"teams":"outlook");
@@ -1249,15 +1261,18 @@ async function localMail(t,s,app){
   const dbg=(dbgRow||raw.slice(0,3).join(" ⏐ ")).slice(0,1800);
   tell(app+" açıldı ama mail satırlarını ayıramadım patron.");
   add("(Ekrandan gelen: "+(dbg||"hiçbir şey")+")","g");return}
+ return localList(t,s,app,who,askFrom,items,false,raw.some(x=>/okunmad|okunmam|unread/i.test(x)))}
+
+function localList(t,s,app,who,askFrom,items,owa,uk){
  const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
  let note="";
  if(who){const w=low(who).split(/\s+/).filter(v=>v.length>2);const byP=items.filter(x=>w.some(v=>low(x.p.join(" ")).includes(v)));
-  if(byP.length)items=byP;else{tell("Patron, "+app+"'ta "+who+" diye arattım ama sonuç göremedim.");return}}
+  if(byP.length)items=byP;else if(!owa||!items.length){tell("Patron, "+app+"'ta "+who+" diye arattım ama sonuç göremedim.");return}}
  if(unreadQ){const u=items.filter(x=>x.u);
   if(u.length)items=u;
-  else if(raw.some(x=>/okunmad|okunmam|unread/i.test(x))){tell("Okunmamış mailin yok patron.");return}
+  else if(uk){tell("Okunmamış mailin yok patron.");return}
   else note="Okunmamış işaretini ekrandan ayıramadım, en son gelenleri söylüyorum. "}
- if(askFrom&&who&&items.length){const x=items[0];window.__mailPick={list:[x],app};
+ if(askFrom&&who&&items.length){const x=items[0];window.__mailPick={list:[x],app,owa};
   const m=who+" maili "+x.p[0]+" kişisinden gelmiş patron"+(x.p.find(q=>/\d{1,2}[:.]\d{2}|dün|pzt|sal|çar|per|cum|cmt|paz/i.test(q))?", "+x.p.find(q=>/\d{1,2}[:.]\d{2}|dün|pzt|sal|çar|per|cum|cmt|paz/i.test(q)):"")+". Açıp okuyayım mı?";
   askYN(m,()=>pickMail("1"),()=>tell("Tamam patron."));return}
  if(app==="Teams"){const lines=items.slice(0,5).map((x,i)=>(i+1)+". "+x.p.slice(0,3).join(", ").slice(0,200));
@@ -1267,7 +1282,7 @@ async function localMail(t,s,app){
  const names=list.map((x,i)=>(i+1)+". "+x.p[0]);
  const head=who?who+" ile ilgili "+list.length+" mail buldum patron. ":unreadQ&&!note?"Okunmamış "+items.length+" mailin var patron. ":note+"Gelen kutunda en üstteki "+list.length+" mail şunlardan geliyor. ";
  add(head+"\n"+list.map((x,i)=>(i+1)+". "+x.p.slice(0,3).join(" — ").slice(0,160)).join("\n"),"g");
- window.__mailPick={list,app};
+ window.__mailPick={list,app,owa};
  const q=head+"Gönderenler: "+names.join(", ")+". Hangisini açıp okuyayım?";
  pendInput=pickMail;say(q,autoListen)}
 
@@ -1287,7 +1302,9 @@ async function pickMail(ans){
  const it=P.list[idx];
  document.body.classList.add("think");setSt(it.p[0]+" mailini açıyorum…");
  const key=it.p[0]+"\u0001"+(it.p[1]||"").slice(0,30);
- const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;A.screenFind(id,P.app==="Teams"?"teams":"outlook","open:"+key);setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
+ const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
+  if(P.owa&&typeof A.owaOpen==="function")A.owaOpen(id,it.i);else A.screenFind(id,P.app==="Teams"?"teams":"outlook","open:"+key);
+  setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
  document.body.classList.remove("think");setSt("");
  if(r.st==="notfound"){tell("O maili listede bulamadım patron, yeri değişmiş olabilir.");return}
  if(r.st!=="ok"){tell("Maili açamadım patron.");return}
