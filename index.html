@@ -788,6 +788,14 @@ window.nativeCalib=t=>{calHeard.push(t);$("calst").textContent="Duyduğum: "+cal
   const old=A.getTriggers();A.setTriggers([old,...tr].filter(Boolean).join("|"));
   $("calst").textContent="Öğrendim: "+tr.join(", ");say("Tamam patron, sesini öğrendim.")}};
 $("calx").onclick=()=>{A.setTriggers("");$("calst").textContent="Öğrenilenler silindi.";};
+if(typeof A.lastHeard==="function"){
+ const d=document.createElement("div");
+ d.innerHTML='<div class="sub" id="lheard" style="text-align:left"></div><div class="row"><button id="twake">🔒 Kilit ekranı testi (10 sn)</button></div>';
+ $("calst").after(d);
+ const upd=()=>{try{const o=JSON.parse(A.lastHeard());$("lheard").textContent=o.text?("Son duyduğum: \""+o.text+"\" ("+new Date(o.at).toLocaleTimeString("tr-TR")+")"):"Son duyduğum: henüz bir şey duymadım."}catch(e){}};
+ upd();setInterval(upd,3000);
+ $("twake").onclick=()=>{if(!A.wakeOn()){tell("Önce Uyandırma'yı aç patron.");return}A.testWake();tell("Şimdi telefonu kilitle. 10 saniye sonra 'Buyur patron' demem lazım.")};
+}
 
 /* ---------- İzinler ---------- */
 const PERMS=[
@@ -1030,14 +1038,27 @@ if(window.localOnly())A.llmWarm();
 {
 let convo=false,convoMiss=0;
 const END=/^(kapat|kapatıyorum|kapatiyorum|görüşürüz|gorusuruz|hoşça kal|hosca kal|tamam bu kadar|bu kadar|yok sağ ?ol|yok teşekkür|yok tesekkur|başka bir şey yok|baska bir sey yok|iyi geceler|iyi günler)/;
-window.nativeConvo=rem=>{convo=true;convoMiss=0;$("cap").textContent="Seni dinliyorum patron. Bitirmek için 'kapatıyorum' de.";A.listen()};
+let greetRem="";
+window.nativeConvo=rem=>{convo=true;convoMiss=0;greetRem=String(rem||"");
+ if(greetRem){hush();add("Merhaba patron, nasılsın?","g");say("Merhaba patron, nasılsın?",()=>A.listen());return}
+ $("cap").textContent="Seni dinliyorum patron. Bitirmek için 'kapatıyorum' de.";A.listen()};
+function moodReply(s){
+ if(/(kötü|kotu|yorgun|hasta|berbat|üzgün|uzgun|sıkıntı|sikinti|stres|bitkin|uykusuz|ağrı|agri|pek iyi değil|iyi değil|idare)/.test(s))return"Geçmiş olsun patron, kendine iyi bak.";
+ if(/(iyi|güzel|guzel|süper|super|harika|mükemmel|mukemmel|fena değil|fena degil|şükür|sukur|çok iyi|bomba)/.test(s))return"Sevindim patron.";
+ if(/(sen nasılsın|sen nasilsin|sen|sende)/.test(s))return"Ben de iyiyim patron, sorduğun için sağ ol.";
+ return"Anladım patron.";}
 const _sd=window.nativeSpeakDone;
 window.nativeSpeakDone=function(){_sd();if(convo)setTimeout(()=>{if(convo&&!lis&&!pendYN&&!pendInput&&!document.body.classList.contains("talk")&&!document.body.classList.contains("think"))A.listen()},500)};
 const _ns=window.nativeNoSpeech;
 window.nativeNoSpeech=()=>{if(!convo)return _ns();convoMiss++;if(convoMiss>=2){convo=false;say("Ses gelmedi, kapatıyorum patron. Görüşürüz.",()=>A.endConvo&&A.endConvo())}else A.listen()};
 const _h=handle;
 handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
- if(convo){convoMiss=0;if(END.test(s)){add(t,"u");convo=false;say("Görüşürüz patron.",()=>A.endConvo&&A.endConvo());return}}
+ if(convo){convoMiss=0;
+  if(greetRem){const r=greetRem;greetRem="";add(t,"u");
+   const extra=/(sen nasılsın|sen nasilsin|ya sen|sende nasıl)/.test(s)&&!/^(sen|ya sen)/.test(s)?" Ben de iyiyim, sağ ol.":"";
+   const m=moodReply(s)+extra+" Seni şunun için aradım: "+r+". Başka bir şey var mı patron?";
+   add(m,"g");say(m);return}
+  if(END.test(s)){add(t,"u");convo=false;say("Görüşürüz patron.",()=>A.endConvo&&A.endConvo());return}}
  if(typeof A.waVoiceTts==="function"&&/(sesli mesaj|ses mesaj|ses kayd|sesli not)/.test(s)){add(t,"u");return voiceRoute(t,s)}
  return _h(t,quick)};
 
