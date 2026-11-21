@@ -994,7 +994,7 @@ async function msRoute(t){
  const signed=!!msState().signed;
  document.body.classList.add("think");setSt(isTeams?"Teams'e bakıyorum…":"Maillerine bakıyorum…");
  try{
-  if(!signed)notifRoute(t,s,isTeams?"Teams":"Outlook");
+  if(!signed)await localMail(t,s,isTeams?"Teams":"Outlook");
   else if(isTeams)await teamsRoute(t,s);
   else await mailRoute(t,s);
  }catch(e){tell("Patron, olmadı: "+e.message)}
@@ -1111,19 +1111,24 @@ if(typeof A.googleAsk==="function"){
 }
 
 
-/* ---------- Uyandırma: "Buradayım patron"; cevap yoksa arar ---------- */
-let wakeWait=0;
+/* ---------- Uyandırma: "Buyur patron"; cevap yoksa 3 kez 30 sn arayla sorar, sonra arar ---------- */
+let wakeWait=0,wakeTimer=null;
 const keep=on=>{try{A.keepListen&&A.keepListen(on)}catch(e){}};
-window.nativeWake=()=>{hush();wakeWait=1;keep(true);$("cap").textContent="Buradayım patron";say("Buradayım patron, buyur.",()=>A.listen())};
+const wakeStop=()=>{wakeWait=0;clearTimeout(wakeTimer);wakeTimer=null};
+window.nativeWake=()=>{hush();wakeStop();wakeWait=1;keep(true);$("cap").textContent="Buyur patron";say("Buyur patron.",()=>A.listen())};
 const wakeAgain=()=>{
- if(wakeWait<2){wakeWait++;say("Patron, buradayım. Duyuyor musun?",()=>A.listen());return true}
- wakeWait=0;keep(false);
- if(typeof A.wakeCall==="function"){say("Cevap gelmedi, seni arıyorum patron.",()=>A.wakeCall())}
- else say("Tamam patron, ihtiyacın olursa Gandalf de.");
+ keep(false);
+ if(wakeWait<4){wakeWait++;setSt("Bekliyorum patron…");
+  wakeTimer=setTimeout(()=>{if(!wakeWait)return;keep(true);say("Patron, beni duyuyor musun?",()=>A.listen())},30000);return true}
+ setSt("Cevap gelmedi, birazdan arayacağım…");
+ wakeTimer=setTimeout(()=>{if(!wakeWait)return;wakeStop();
+  if(typeof A.wakeCall==="function")say("Cevap gelmedi, seni arıyorum patron.",()=>A.wakeCall());
+  else say("Tamam patron, ihtiyacın olursa Gandalf de.")},30000);
  return true};
 const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return wakeAgain();return _wns()};
 const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
-const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeWait=0;keep(false)}return _wr(t)};
+const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeStop();keep(false)}return _wr(t)};
+window.__wakeStop=wakeStop;
 
 /* ---------- LG televizyon (kızılötesi) ve uygulama açma ---------- */
 if(typeof A.tv==="function"){
@@ -1146,10 +1151,17 @@ if(typeof A.tv==="function"){
   return null};
  const _ht=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
-  if(/(televizyon|\btv\b|tivi|televizyo)/.test(s)||(/^(sesi|sesini)\s/.test(s)&&/(kıs|aç|artır|azalt)/.test(s)&&!/(telefon|müzik)/.test(s))){
-   const c=tvCmd(s);
+  const tvWord=/(televizyon|\btv\b|tivi|televizyo)/.test(s);
+  const inCtx=window.__tvLast&&Date.now()-window.__tvLast.at<180000&&s.split(/\s+/).length<=7&&!/(hatırlat|mail|teams|whatsapp|mesaj|\bara\b|hava|nedir|kimdir)/.test(s);
+  if(tvWord||inCtx||(/^(sesi|sesini)\s/.test(s)&&/(kıs|aç|artır|azalt)/.test(s)&&!/(telefon|müzik)/.test(s))){
+   let c=tvCmd(s);
+   if(!tvWord&&inCtx){
+    if(/(aç|artır|arttır|yükselt)/.test(s)&&!/kanal/.test(s))c=["volup","sesi açtım"];
+    else if(/(kıs|azalt|düşür)/.test(s))c=["voldown","sesi kıstım"];
+    else if(!c&&/(daha|tekrar|bir daha|aynı)/.test(s))c=window.__tvLast.c;
+   }
    if(c){add(t,"u");const n=c[0].match(/^\d+$/)?1:times(s);
-    const r=A.tv(c[0],n);
+    const r=A.tv(c[0],n);if(r==="ok")window.__tvLast={c,at:Date.now()};
     if(r==="ok")tell("Tamam patron, "+(n>1?n+" kez ":"")+c[1]+".");
     else if(r==="noir")tell("Patron, bu telefonda kızılötesi verici bulamadım. Televizyonu buradan kontrol edemiyorum.");
     else tell("Televizyona sinyal gönderemedim patron. Telefonun üst ucunu televizyona doğru tut.");
@@ -1198,6 +1210,65 @@ if(typeof A.setClap==="function"){
  const sv=String(A.clapSens());$("clapsens").value=["0.7","0.85","1","1.25"].includes(sv)?sv:"1";
  $("clapsens").onchange=()=>A.setClapSens(+$("clapsens").value);
 }
+
+/* ---------- İş hesabı yokken: bildirim + ekrandan okuma ---------- */
+const sw={};let sn=0;
+window.nativeScreen=(id,st,j)=>{const f=sw[id];delete sw[id];if(f)f({st,j})};
+function screenRead(app){return new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;A.screenRead(id,app);setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},20000)})}
+async function localMail(t,s,app){
+ const send=/(gönder|yaz\b|yazsana|cevap ver|yanıtla|\bat\b|atsana)/.test(s)&&!/(ne yaz|oku|okunmam)/.test(s);
+ if(send)return notifRoute(t,s,app);
+ if(A.notifOk()){let items=[];try{items=JSON.parse(A.notifList())}catch(e){}
+  const cands=nameCands(t).flatMap(c=>c.vars).filter(v=>v.length>2);
+  const hit=items.filter(x=>x.app===app).reverse().find(x=>cands.some(v=>low(x.from+" "+x.sub).includes(v)));
+  if(hit){readLong(hit.from+", "+trDate(hit.time)+" tarihinde yazmış: ",hit.text);return}}
+ if(typeof A.screenRead!=="function"){tell("Patron, bunun için uygulamanın yeni sürümü gerekiyor. Ayarlar'dan güncelle.");return}
+ if(!A.waAutoOk()){tell("Patron, "+app+"'u ekrandan okuyabilmem için Ayarlar'daki Erişilebilirlik iznini (WhatsApp'ta otomatik gönder) açman gerekiyor.");return}
+ setSt(app+" açılıyor, bakıyorum…");
+ const r=await screenRead(app==="Teams"?"teams":"outlook");
+ if(r.st==="noapp"){tell("Telefonda "+app+" uygulamasını bulamadım patron.");return}
+ if(r.st!=="ok"){tell(app+" ekranını okuyamadım patron. Bir daha dener misin?");return}
+ let raw=[];try{raw=JSON.parse(r.j||"[]")}catch(e){}
+ const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla)/i;
+ let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(p=>p.trim()).filter(p=>p&&!/^(okunmadı|okunmamış|unread|bayraklı|flagged|seçili değil)$/i.test(p)).filter((p,i,a)=>a.indexOf(p)===i)}))
+  .filter(x=>x.p.length>=2&&!junk.test(x.p[0]));
+ const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
+ let note="";
+ if(unreadQ){const u=items.filter(x=>x.u);if(u.length)items=u;else note="Okunmamış işaretini ekrandan göremedim, en son gelenleri söylüyorum. "}
+ const cands=nameCands(t).flatMap(c=>c.vars).filter(v=>v.length>2&&!/^(mail|son|gelen|okunm|outlook|teams|var)/.test(v));
+ const byP=items.filter(x=>cands.some(v=>low(x.p.join(" ")).includes(v)));
+ if(byP.length)items=byP;
+ if(!items.length){tell(app+" ekranında okunacak bir şey göremedim patron.");return}
+ const lines=items.slice(0,5).map((x,i)=>(i+1)+". "+x.p.slice(0,4).join(", ").slice(0,170));
+ const head=app==="Teams"?"Teams'te en üstteki sohbetler: ":(unreadQ&&!note?items.length+" okunmamış mail görüyorum patron. ":"Gelen kutunda en üstte bunlar var patron. ");
+ const m=note+head+"\n"+lines.join("\n");add(m,"g");say(m.replace(/\n/g,". "))}
+
+/* ---------- Hava durumu (Open-Meteo, ücretsiz, anahtarsız) ---------- */
+const WMO={0:"açık",1:"az bulutlu",2:"parçalı bulutlu",3:"kapalı",45:"sisli",48:"kırağılı sisli",51:"hafif çisentili",53:"çisentili",55:"yoğun çisentili",56:"donan çisentili",57:"donan çisentili",61:"hafif yağmurlu",63:"yağmurlu",65:"kuvvetli yağmurlu",66:"donan yağmurlu",67:"donan yağmurlu",71:"hafif kar yağışlı",73:"kar yağışlı",75:"yoğun kar yağışlı",77:"kar taneli",80:"hafif sağanaklı",81:"sağanak yağışlı",82:"şiddetli sağanaklı",85:"kar sağanaklı",86:"yoğun kar sağanaklı",95:"gök gürültülü fırtınalı",96:"dolulu fırtınalı",99:"şiddetli dolulu fırtınalı"};
+async function weatherRoute(t,s){
+ add(t,"u");document.body.classList.add("think");setSt("Hava durumuna bakıyorum…");
+ try{
+  let lat,lon,place="";
+  const m=s.match(/([a-zçğıöşü]+?)(?:['’]?(?:da|de|ta|te)|\s+için)\s+(yarın\s+|bugün\s+)?(hava|yağmur|kar|sıcaklık|kaç derece)/);
+  const city=m&&!/^(bura|şura|burda|ev|dışarı|bugün|yarın|şimdi)/.test(m[1])?m[1]:null;
+  if(city){const g=await(await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=tr&name="+encodeURIComponent(city))).json();
+   const r=g.results&&g.results[0];if(!r){tell(city+" diye bir yer bulamadım patron.");return}
+   lat=r.latitude;lon=r.longitude;place=r.name}
+  else{const u=await getLoc();const q=u.match(/q=(-?[\d.]+),(-?[\d.]+)/);lat=+q[1];lon=+q[2]}
+  const w=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3`)).json();
+  const R=x=>Math.round(x),d=w.daily,c=w.current,tom=/yarın/.test(s),i=tom?1:0;
+  let msg;
+  if(tom)msg=`Patron, yarın ${city?place+"'da ":""}hava ${WMO[d.weather_code[1]]||"değişken"}. En yüksek ${R(d.temperature_2m_max[1])}, en düşük ${R(d.temperature_2m_min[1])} derece. Yağış ihtimali yüzde ${d.precipitation_probability_max[1]??0}.`;
+  else msg=`Patron, ${city?place+"'da":"bulunduğun yerde"} hava şu an ${WMO[c.weather_code]||"değişken"}, ${R(c.temperature_2m)} derece, hissedilen ${R(c.apparent_temperature)}. Bugün en yüksek ${R(d.temperature_2m_max[0])}, en düşük ${R(d.temperature_2m_min[0])} derece, yağış ihtimali yüzde ${d.precipitation_probability_max[0]??0}.`;
+  if((d.precipitation_probability_max[i]??0)>=50)msg+=" Şemsiyeni almayı unutma.";
+  tell(msg)
+ }catch(e){tell("Hava durumuna ulaşamadım patron: "+(e.message||e))}
+ finally{document.body.classList.remove("think");setSt("")}}
+{const _hw=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(window.__wakeStop)window.__wakeStop();
+  if(/(hava durumu|hava nasıl|havalar nasıl|kaç derece|yağmur yağacak|yağmur var mı|kar yağacak|şemsiye|hava soğuk mu|hava sıcak mı|havası nasıl)/.test(s)&&!/(televizyon|\btv\b)/.test(s))return weatherRoute(t,s);
+  return _hw(t,quick)};}
 })();
 
 </script>
