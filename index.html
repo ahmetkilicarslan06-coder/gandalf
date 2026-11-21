@@ -1187,6 +1187,17 @@ if(typeof A.updCheck==="function"){
   if(/(güncelleme|güncelle|yeni sürüm|sürüm güncel)/.test(s)&&!/(hatırlat|mail|teams|whatsapp)/.test(s)){add(t,"u");updCheck(true);return}
   return _hu(t,quick)};
 }
+
+/* ---------- Çift alkışla uyanma ---------- */
+if(typeof A.setClap==="function"){
+ const cd=document.createElement("div");
+ cd.innerHTML=`<label style="display:flex;align-items:center;gap:12px;margin:8px 0;text-align:left"><input type="checkbox" id="clapon" style="width:24px;height:24px;flex:none;margin:0"> 👏👏 İki kez alkışlayınca da uyan</label>
+ <div class="row" style="align-items:center;gap:8px"><span class="sub">Alkış hassasiyeti</span><select id="clapsens"><option value="0.7">Çok hassas</option><option value="0.85">Hassas</option><option value="1">Normal</option><option value="1.25">Zor (gürültülü ortam)</option></select></div>`;
+ const w=$("wst");w.parentNode.insertBefore(cd,w.nextSibling);
+ $("clapon").checked=A.clapOn();$("clapon").onchange=()=>A.setClap($("clapon").checked);
+ const sv=String(A.clapSens());$("clapsens").value=["0.7","0.85","1","1.25"].includes(sv)?sv:"1";
+ $("clapsens").onchange=()=>A.setClapSens(+$("clapsens").value);
+}
 })();
 
 </script>
