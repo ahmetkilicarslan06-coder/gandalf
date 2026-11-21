@@ -69,6 +69,9 @@ input,select{font-size:16px!important}
 summary{padding:6px 0}
 @media (max-width:600px){h1{font-size:22px}header button{padding:6px 9px;font-size:14px}.portrait{width:min(86vw,46vh)}#cap{font-size:17px;min-height:3em}#chat{max-height:62vh}}
 .phonehide{display:none!important}
+#vps{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:8px 0}
+.vpb{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;min-height:56px}
+.vpb small{color:var(--mute);font-size:13px}.vpb.on{border-color:var(--gr);box-shadow:0 0 0 2px rgba(120,240,255,.35)}
 #act{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;width:100%}
 #act[hidden]{display:none}
 .actb{flex:1 1 220px;text-align:center;font-size:18px;font-weight:600;padding:14px 16px;border-radius:14px;color:#04140b;background:var(--gr);text-decoration:none;box-shadow:0 0 18px rgba(120,240,255,.45)}
@@ -95,7 +98,7 @@ summary{padding:6px 0}
 <div id="cap" aria-live="polite"></div>
 <div id="st" class="sub" aria-live="polite"></div>
 <div id="act" hidden></div>
-<div id="quick"><button id="more" hidden>📖 Detaylı anlat</button><button data-q="Gram altın ve çeyrek altın bugün kaç lira? Dünkü fiyata göre yükseldi mi düştü mü?">Altın</button><button data-q="Dolar ve euro bugün kaç lira?">Dolar / Euro</button><button data-q="Bugünün önemli haberleri neler?">Haberler</button></div>
+<div id="quick"><button id="more" hidden style="display:none">📖 Detaylı anlat</button><button data-q="Gram altın ve çeyrek altın bugün kaç lira? Dünkü fiyata göre yükseldi mi düştü mü?">Altın</button><button data-q="Dolar ve euro bugün kaç lira?">Dolar / Euro</button><button data-q="Bugünün önemli haberleri neler?">Haberler</button></div>
 <div id="player" hidden><button id="pclose" aria-label="Oynatıcıyı kapat">Kapat ✕</button><div id="pbox"></div></div>
 
 <details id="hist">
@@ -106,7 +109,9 @@ summary{padding:6px 0}
  <summary>Ayarlar ve hatırlatmalar</summary>
  <div class="row"><input id="key" type="password" placeholder="Gemini API anahtarı (aistudio.google.com/apikey, ücretsiz)"><button id="save">Kaydet</button></div>
  <div class="row phonehide"><label for="mode" class="sub">Beyin:</label><select id="mode"><option value="auto">Otomatik (önce yerel Ollama, olmazsa Gemini)</option><option value="gemini">Sadece Gemini (internet aramalı)</option><option value="local">Sadece yerel (Ollama, kotasız)</option></select></div>
- <div class="row"><label for="ln" class="sub">Cevap:</label><select id="ln"><option value="ask">Her soruda bana sor</option><option value="short">Kısa özet (3-4 cümle)</option><option value="long">Detaylı anlatım (tamamı)</option></select></div>
+ <div class="row" hidden><label for="ln" class="sub">Cevap:</label><select id="ln"><option value="ask">Her soruda bana sor</option><option value="short">Kısa özet (3-4 cümle)</option><option value="long">Detaylı anlatım (tamamı)</option></select></div>
+ <div class="sub" style="text-align:left;margin-top:6px">Gandalf sesi (dokun, dinle, seç)</div>
+ <div id="vps"></div>
  <div class="row"><label for="voice" class="sub">Ses:</label><select id="voice"><option value="">Otomatik</option></select></div>
  <div class="row phonehide"><input id="ajk" type="password" placeholder="Ajan anahtarı (Gandalf_Ajan.py penceresinde yazar)"><span id="ajs" class="sub">…</span></div>
  <div class="row phonehide"><input id="ajp" placeholder="Netflix profil adı (örn: Ahmet)"></div>
@@ -149,8 +154,13 @@ function fillVoices(){const el=$("voice");if(!el)return;const vs=trVoices(),cur=
 if(window.speechSynthesis){speechSynthesis.onvoiceschanged=fillVoices;setTimeout(fillVoices,300)}
 function say(t,done){if(!speak||!window.speechSynthesis){if(done)setTimeout(done,300);return}speechSynthesis.cancel();
  const parts=[];let cur="";for(const sn of String(t).replace(/https?:\/\/\S+/g,"link").match(/[^.!?…\n]+[.!?…]*\s*/g)||[]){if((cur+sn).length>180&&cur){parts.push(cur);cur=""}cur+=sn}if(cur.trim())parts.push(cur);
- const v=pickVoice();parts.forEach((pt,i)=>{const u=new SpeechSynthesisUtterance(pt.trim());u.lang="tr-TR";u.rate=1.05;if(v)u.voice=v;
+ const v=pickVoice(),vp=VPRE[vpIdx]||VPRE[0];parts.forEach((pt,i)=>{const u=new SpeechSynthesisUtterance(pt.trim());u.lang="tr-TR";u.rate=vp.r;u.pitch=vp.p;if(v)u.voice=v;
   u.onstart=()=>document.body.classList.add("talk");if(i===parts.length-1)u.onend=u.onerror=()=>{document.body.classList.remove("talk");if(done)setTimeout(done,250)};speechSynthesis.speak(u)})}
+const VPRE=[{n:"Normal",d:"telefonun kendi sesi",p:1,r:1.05},{n:"Bilge Büyücü",d:"kalın, ağır, yaşlı",p:.62,r:.9},{n:"Derin Kral",d:"çok kalın, vakur",p:.5,r:.84},{n:"Gök Gürültüsü",d:"en tok, en yavaş",p:.38,r:.8},{n:"Sakin Hoca",d:"hafif kalın, yumuşak",p:.76,r:.93},{n:"Kararlı Komutan",d:"kalın ve hızlı",p:.66,r:1.04}];
+let vpIdx=store.get("g_vp",1);
+function renderVP(){const box=$("vps");if(!box)return;box.innerHTML="";VPRE.forEach((x,i)=>{const b=document.createElement("button");b.className="vpb"+(i===vpIdx?" on":"");b.setAttribute("aria-pressed",i===vpIdx);
+ b.innerHTML="<b></b><small></small>";b.firstChild.textContent=(i===vpIdx?"✓ ":"")+x.n;b.lastChild.textContent=x.d;
+ b.onclick=()=>{vpIdx=i;store.set("g_vp",i);renderVP();const was=speak;speak=true;say("Selam patron, ben Gandalf. Bilgi yolunda sana rehberlik etmeye hazırım.");speak=was};box.append(b)})}
 function hush(){try{speechSynthesis.cancel()}catch(e){}document.body.classList.remove("talk")}
 
 $("spk").onclick=()=>{speak=!speak;$("spk").textContent="Ses: "+(speak?"açık":"kapalı");$("spk").setAttribute("aria-pressed",speak);if(!speak)speechSynthesis.cancel()};
@@ -169,11 +179,11 @@ function renderRem(){const u=$("rem");u.innerHTML="";
  if(!rems.length){u.innerHTML='<li class="sub">Hatırlatma yok.</li>';return}
  rems.sort((a,b)=>a.at-b.at).forEach(r=>{const li=document.createElement("li");
   li.append(new Date(r.at).toLocaleString("tr-TR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})+" — "+r.what);
-  const b=document.createElement("button");b.textContent="Sil";b.onclick=()=>{rems=rems.filter(x=>x!==r);store.set("g_rem",rems);renderRem()};li.append(b);u.append(li)})}
+  const b=document.createElement("button");b.textContent="Sil";b.onclick=()=>{if(window.Android)Android.cancelRemind(r.at);rems=rems.filter(x=>x!==r);store.set("g_rem",rems);renderRem()};li.append(b);u.append(li)})}
 function beep(){try{const c=new AudioContext(),o=c.createOscillator();o.frequency.value=660;o.connect(c.destination);o.start();o.stop(c.currentTime+.4)}catch(e){}}
 setInterval(()=>{const now=Date.now(),due=rems.filter(r=>r.at<=now);if(!due.length)return;
  rems=rems.filter(r=>r.at>now);store.set("g_rem",rems);renderRem();
- due.forEach(r=>{const t="Patron, hatırlatma: "+r.what;beep();add(t,"g");say(t);
+ if(!window.Android)due.forEach(r=>{const t="Patron, hatırlatma: "+r.what;beep();add(t,"g");say(t);
   if("Notification"in window&&Notification.permission==="granted")new Notification("Gandalf",{body:r.what})})},1000);
 
 /* ---- Araştırma ---- */
@@ -181,14 +191,15 @@ const SYS="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya
 const SYS_LONG="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya 'patron' diye hitap et. Soruyu güncel internet aramasıyla iyice araştır ve konuyu ayrıntılı anlat: önce bir cümlelik özet, sonra 4-7 paragrafta neyin ne olduğu, nedenleri, önemli rakamlar, tarihler, farklı görüşler ve son durum. En sonda 'Kısacası' ile başlayan bir özet cümlesi yaz. Başlık, madde işareti, markdown ve yıldız kullanma; paragraflar arasında boş satır bırak. Sesli okunacak, sade yaz. Emin olmadığın yeri belirt, rakam uydurma.";
 let DETAIL=false,lastQ="";
 const LONGRE=/(detaylı|detayli|ayrıntılı|ayrintili|uzun uzun|uzunca|tamamını|tamamini|her şeyiyle|derinlemesine|enine boyuna|baştan sona|geniş geniş|tüm detay)/i,SHORTRE=/(kısaca|kisaca|özetle|ozetle|kısa kısa|tek cümle)/i,MORERE=/^(detaylı|ayrıntılı|daha detaylı|devamını|devam|tamamını|daha fazla|uzun)( (anlat|anlatır mısın|ver|bilgi ver|açıkla|oku))?( patron| gandalf)?[.!?]*$/i;
-var lenPref=store.get("g_len","ask");let pendLen=null;$("ln").value=lenPref;$("ln").onchange=()=>{lenPref=$("ln").value;store.set("g_len",lenPref)};
+var lenPref="short";let pendLen=null;$("ln").value=lenPref;$("ln").onchange=()=>{lenPref=$("ln").value;store.set("g_len",lenPref)};
 $("more").onclick=()=>{if(lastQ){add("Detaylı anlat","u");ask(lastQ,true)}};
 $("cap").onclick=hush;
 function lenChoice(q){pendLen=q;const m="Patron, kısaca mı anlatayım, yoksa detaylı mı?";add(m,"g");
  const box=$("act");box.innerHTML="";box.hidden=false;
  [["⚡ Kısa özet",false],["📖 Detaylı anlat",true]].forEach(([l,v])=>{const b=document.createElement("button");b.className="actb";b.textContent=l;
   b.onclick=()=>{box.hidden=true;if(!pendLen)return;const qq=pendLen;pendLen=null;add(v?"Detaylı":"Kısa","u");ask(qq,v)};box.append(b)});
- say(m,()=>{if(pendLen&&typeof SR!=="undefined"&&SR&&window.isSecureContext&&!rec&&!wakeOn){try{autoMic=true;$("mic").click()}catch(e){autoMic=false}}})}
+ say(m,()=>{if(pendLen)autoListen()})}
+function autoListen(){if(window.Android){Android.listen();return}if(typeof SR!=="undefined"&&SR&&window.isSecureContext&&!rec&&!wakeOn){try{autoMic=true;$("mic").click()}catch(e){autoMic=false}}}
 function lenAnswer(t){const s=t.toLocaleLowerCase("tr-TR");
  if(/(detay|ayrıntı|ayrinti|uzun|tamam[ıi]n|hepsi|geniş|derin)/.test(s))return true;
  if(/(kısa|kisa|özet|ozet|hızlı|tek cümle)/.test(s))return false;return null}
@@ -211,12 +222,13 @@ async function gen(m,o){
  if(o.search)body.tools=[{google_search:{}}];
  const r=await fetch(API+"models/"+m+":generateContent?key="+encodeURIComponent(key),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
  const j=await r.json();if(r.ok)return j;
- const msg=j.error?.message||String(r.status),e=new Error(msg);e.status=r.status;e.daily=/PerDay|per day|daily/i.test(msg+JSON.stringify(j.error?.details||""));throw e}
+ const msg=j.error?.message||String(r.status),e=new Error(msg);e.status=r.status;e.daily=/PerDay|per day|daily/i.test(msg+JSON.stringify(j.error?.details||""));const rd=JSON.stringify(j.error?.details||"").match(/"retryDelay":"(\d+)/);e.retry=rd?+rd[1]:0;throw e}
 async function runOnce(list,o){const errs=[];let q429=null;
  for(const m of list.slice(0,4)){for(const ws of (o.search===false?[false]:[true,false])){
   try{return {j:await gen(m,{...o,search:ws}),m}}catch(e){
    if(e.status===429){q429=q429&&q429.daily?q429:e;break}
    errs.push(m+": "+e.message);if(/API key|API_KEY|permission|PERMISSION/i.test(e.message))throw new Error(e.message)}}}
+ if(q429&&!q429.daily&&!o.noWait){const w=Math.min(Math.max(q429.retry||20,5),60);if(o.prog)o.prog("Dakikalık ücretsiz sınır doldu, "+w+" saniye bekleyip tekrar deniyorum patron…");await new Promise(r=>setTimeout(r,w*1000+500));return runOnce(list,{...o,noWait:true})}
  if(q429){const x=new Error(q429.daily?"Günlük ücretsiz kota doldu (tüm modeller). Yarın yenilenir ya da başka bir Google hesabından yeni anahtar alıp Ayarlar'a yapıştır.":"Dakikalık ücretsiz sınır doldu. Bir dakika bekleyip tekrar sor patron.");x.status=429;throw x}
  throw new Error(errs.slice(-2).join(" | "))}
 function readJ(j){const c=j.candidates?.[0];return {txt:(c?.content?.parts||[]).map(p=>p.text||"").join("").trim(),src:(c?.groundingMetadata?.groundingChunks||[]).map(x=>x.web).filter(Boolean)}}
@@ -290,9 +302,9 @@ async function ask(q,forceLong){
    if(!key)return;
    prog(gFirst?"İnternetten araştırıyorum…":"Yerel model olmadı, Gemini'ye geçiyorum…");
    try{
-    const list=await getModels();
-    try{const o=await runOnce(list,{});({txt,src}=readJ(o.j))}catch(e){if(e.status===429||/API key|API_KEY|permission/i.test(e.message))throw e}
-    const weak=!txt||WEAK.test(txt)||(FRESH.test(q)&&!src.length&&!/\d/.test(txt))||(DETAIL&&txt.length<700);
+    const all=await getModels(),list=DETAIL?all:[...all].sort((x,y)=>/lite/.test(y)-/lite/.test(x));
+    try{const o=await runOnce(list,{prog});({txt,src}=readJ(o.j))}catch(e){if(e.status===429||/API key|API_KEY|permission/i.test(e.message))throw e}
+    const weak=!txt;
     if(weak){try{const a=await agent(q,list,prog);if(a.txt){txt=a.txt;src=a.src}}catch(e){if(!txt)throw e}}
    }catch(e){gerr=e;modelList=null}
   };
@@ -308,13 +320,13 @@ async function ask(q,forceLong){
   txt+=note;
   if(!txt)throw new Error("Cevap alamadım.");
   hist.push({role:"model",parts:[{text:txt}]});
-  w.remove();document.body.classList.remove("think");add(txt,"g",src);say(txt);$("more").hidden=DETAIL;
+  w.remove();document.body.classList.remove("think");add(txt,"g",src);say(txt);
  }catch(e){hist.pop();document.body.classList.remove("think");const m="Hata: "+e.message;w.textContent=m;$("cap").textContent=m}}
 
 async function handle(t,quick){t=t.trim();if(!t)return;add(t,"u");
  const r=parseRem(t);
  if(r){if(r.err){const m="Zamanı anlayamadım. Örnek: '20 dakika sonra su içmeyi hatırlat' veya 'yarın saat 9'da toplantıyı hatırlat'.";add(m,"g");say(m);return}
-  rems.push(r);store.set("g_rem",rems);renderRem();
+  rems.push(r);if(window.Android)Android.remind(r.at,r.what);store.set("g_rem",rems);renderRem();
   if("Notification"in window&&Notification.permission==="default")Notification.requestPermission();
   const m="Tamam patron, "+new Date(r.at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})+"'de hatırlatacağım: "+r.what;add(m,"g");say(m);return}
  if(pendLen){const v=lenAnswer(t),q=pendLen;
@@ -331,7 +343,7 @@ async function handle(t,quick){t=t.trim();if(!t)return;add(t,"u");
 function SRok(){return !!(window.SpeechRecognition||window.webkitSpeechRecognition)&&window.isSecureContext}
 $("go").onclick=()=>{const v=$("q").value;$("q").value="";handle(v)};
 $("q").addEventListener("keydown",e=>{if(e.key==="Enter")$("go").click()});
-if(REMOTE&&!SRok()){let qt;$("q").placeholder="Klavyedeki 🎤 ile konuş, otomatik gönderilir…";$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>{if($("q").value.trim().length>2)$("go").click()},1800)})}
+if(REMOTE&&!SRok()&&!window.Android){let qt;$("q").placeholder="Klavyedeki 🎤 ile konuş, otomatik gönderilir…";$("q").addEventListener("input",()=>{clearTimeout(qt);qt=setTimeout(()=>{if($("q").value.trim().length>2)$("go").click()},1800)})}
 
 /* ---- Telefon: arama, SMS, WhatsApp, konum ---- */
 let contacts=store.get("g_contacts",[]),ppend=null;
@@ -348,7 +360,7 @@ $("cpick").onclick=async()=>{
  try{const sel=await navigator.contacts.select(["name","tel"],{multiple:true});let n=0;
   for(const c of sel){const ad=(c.name||[])[0],tel=(c.tel||[])[0];if(ad&&tel&&addContact(ad,tel))n++}
   reply(n?"Tamam patron, "+n+" kişiyi ekledim.":"Kişi eklenmedi.")}catch(e){add("Rehber açılamadı: "+e.message,"g")}};
-renderContacts();
+renderContacts();renderVP();
 function findContact(t){const s=" "+trl(t).replace(/[^a-zçğıöşü0-9\s]/g," ")+" ";const toks=s.trim().split(/\s+/);let best=null;
  for(const c of contacts){const full=trl(c.ad).replace(/[^a-zçğıöşü0-9\s]/g," ").trim(),first=full.split(/\s+/)[0];
   for(const k of [full,first]){if(!k||k.length<2)continue;
@@ -396,7 +408,7 @@ async function phoneRoute(t){const s=trl(t);
   reply("Rehberimde "+nm.replace(/'.*/,"")+" yok patron. Ayarlar > Kişiler'den ekle ya da numarayı söyle.");$("set").open=true;return true}
  if(isCall&&!isWa&&!isSms){doSend("call",ct&&ct.c,num);return true}
  const ch=isWa?"wa":"sms",msg=extractMsg(t,ct);
- if(!msg){ppend={ch,c:ct&&ct.c,num};reply("Ne yazayım patron?");return true}
+ if(!msg){ppend={ch,c:ct&&ct.c,num};add("Ne yazayım patron?","g");say("Ne yazayım patron?",autoListen);return true}
  doSend(ch,ct&&ct.c,num,msg);return true}
 
 /* ---- Ses tanıma ---- */
@@ -654,6 +666,298 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
  const fc=$("gf").parentElement;
  addEventListener("pointermove",e=>{const x=e.clientX/innerWidth-.5,y=e.clientY/innerHeight-.5;fc.style.setProperty("--ry",(x*14)+"deg");fc.style.setProperty("--rx",(-y*10)+"deg")});
  if(im.complete&&im.naturalWidth)go();else im.onload=go})();
+</script>
+<script>
+/* ==== Gandalf Android uygulaması köprüsü (sadece uygulama içinde çalışır) ==== */
+(function(){
+if(!window.Android)return;
+const A=window.Android;
+const low=s=>String(s||"").toLocaleLowerCase("tr-TR");
+document.body.classList.add("native");
+
+/* ---------- Ayarlar paneli ---------- */
+const panel=document.createElement("div");
+panel.innerHTML=`
+ <div class="sub nh">Uyandırma ("Gandalf" deyince açılsın)</div>
+ <div class="sub" id="wst" style="text-align:left">Durum: …</div>
+ <div class="row"><button id="calb">🎙 Sesimi öğret</button><button id="calx">Öğrenileni sil</button></div>
+ <div class="sub" id="calst" style="text-align:left"></div>
+ <div class="sub nh">İzinler (✓ verildi, ✗ verilmedi: dokun ve aç)</div>
+ <div id="perms"></div>
+ <div class="row"><button id="tcall">📞 Arayan hatırlatmayı dene</button></div>
+ <div class="sub nh">İş hesabı (Outlook + Teams)</div>
+ <div class="row"><input id="msc" placeholder="Client ID (BT verir)" autocomplete="off"></div>
+ <div class="row"><input id="mst" placeholder="Tenant ID (BT verir)" autocomplete="off"></div>
+ <div class="row"><button id="mss">Kaydet</button><button id="msl">Giriş yap</button><button id="mso">Çıkış</button></div>
+ <div class="sub" id="msst" style="text-align:left"></div>
+ <div id="mscode" hidden style="text-align:center;margin:8px 0">
+  <div class="sub">Bu kodu Microsoft giriş sayfasına yaz:</div>
+  <div id="mscv" style="font-size:30px;letter-spacing:.2em;font-weight:700;margin:6px 0"></div>
+  <div class="row" style="justify-content:center"><button id="mscc">Kodu kopyala</button><button id="msco">Giriş sayfasını aç</button></div>
+ </div>`;
+const style=document.createElement("style");
+style.textContent=`.nh{text-align:left;margin-top:14px;color:var(--gr)}#perms button{display:block;width:100%;text-align:left;margin:6px 0;min-height:44px}`;
+document.head.append(style);
+const setD=$("set");setD.insertBefore(panel,$("cname").closest(".row").previousElementSibling);
+
+/* ---------- Konuşma (telefonun kendi sesi) ---------- */
+let sayDone=null;
+say=function(t,done){
+ if(!speak){if(done)setTimeout(done,300);return}
+ sayDone=done||null;document.body.classList.add("talk");
+ const vp=VPRE[vpIdx]||VPRE[0];
+ A.speak(String(t).replace(/https?:\/\/\S+/g,"link"),vp.p,vp.r)};
+window.nativeSpeakDone=function(){document.body.classList.remove("talk");const d=sayDone;sayDone=null;if(d)setTimeout(d,150)};
+hush=function(){sayDone=null;A.stopSpeak();document.body.classList.remove("talk")};
+$("cap").onclick=()=>hush();
+$("spk").onclick=()=>{speak=!speak;$("spk").textContent="Ses: "+(speak?"açık":"kapalı");$("spk").setAttribute("aria-pressed",speak);if(!speak)hush()};
+function syncPreset(){const x=VPRE[vpIdx]||VPRE[0];A.setVoicePreset(x.p,x.r)}
+syncPreset();$("vps").addEventListener("click",()=>setTimeout(syncPreset,50));
+let vTry=0;
+fillVoices=function(){const el=$("voice");let vs=[];try{vs=JSON.parse(A.voices())}catch(e){}
+ if(!vs.length){if(vTry++<12)setTimeout(fillVoices,700);return}
+ const cur=store.get("g_voice","");
+ el.innerHTML='<option value="">Otomatik</option>'+vs.map((v,i)=>'<option value="'+v.name+'">Türkçe ses '+(i+1)+(v.net?" (internetli)":"")+'</option>').join("");
+ el.value=cur;
+ el.onchange=()=>{store.set("g_voice",el.value);A.setVoice(el.value);say("Merhaba patron, ben Gandalf.")}};
+fillVoices();
+
+/* ---------- Dinleme ---------- */
+let lis=false;
+$("mic").onclick=()=>{if(lis){A.stopListen();return}hush();A.listen()};
+window.nativeListen=on=>{lis=!!on;$("mic").classList.toggle("on",lis);setSt(lis?"Dinliyorum… söyle.":"")};
+window.nativeResult=t=>{handle(t)};
+window.nativeNoSpeech=()=>{setSt("Duyamadım patron. Mikrofona tekrar bas ya da 'Gandalf' de.");A.resumeWake()};
+window.nativeListenError=c=>{setSt("Dinleme hatası ("+c+"). Tekrar dene.");A.resumeWake()};
+autoListen=function(){A.listen()};
+$("q").placeholder="Sor, ara, mesaj at, mail oku…";
+
+/* ---------- Uyandırma ---------- */
+const wb=$("wake");
+function wakeLabel(){const on=A.wakeOn();wb.textContent="Uyandırma: "+(on?"açık":"kapalı");wb.classList.toggle("on",on);wb.setAttribute("aria-pressed",on);$("wst").textContent="Durum: "+(on?A.status():"kapalı")}
+wb.onclick=()=>{const on=!A.wakeOn();A.setWake(on);setTimeout(wakeLabel,700);if(on){refreshPerms();if(!A.overlayOk())reply("Patron, telefon kilitliyken de açılabilmem için Ayarlar'daki 'Üstte gösterme' iznini ver.")}};
+window.nativeWakeStatus=s=>{$("wst").textContent="Durum: "+s;wb.textContent="Uyandırma: "+(A.wakeOn()?"açık":"kapalı")};
+window.nativeWake=()=>{hush();$("cap").textContent="Buyur patron";say("Buyur patron",()=>A.listen())};
+if(A.wakeWanted()&&!A.wakeOn())A.setWake(true);
+setTimeout(wakeLabel,900);setInterval(wakeLabel,6000);
+
+let calHeard=[];
+$("calb").onclick=()=>{calHeard=[];$("calst").textContent="Şimdi aralarında birer saniye bekleyerek 3 kere 'Gandalf' de…";
+ if(!A.wakeOn())A.setWake(true);setTimeout(()=>A.calib(true),900)};
+window.nativeCalib=t=>{calHeard.push(t);$("calst").textContent="Duyduğum: "+calHeard.join(" | ");
+ if(calHeard.length>=3){A.calib(false);
+  const tr=[...new Set(calHeard.map(x=>low(x).replace(/[^a-zçğıöşü]/g,"")).filter(x=>x.length>=4))];
+  const old=A.getTriggers();A.setTriggers([old,...tr].filter(Boolean).join("|"));
+  $("calst").textContent="Öğrendim: "+tr.join(", ");say("Tamam patron, sesini öğrendim.")}};
+$("calx").onclick=()=>{A.setTriggers("");$("calst").textContent="Öğrenilenler silindi.";};
+
+/* ---------- İzinler ---------- */
+const PERMS=[
+ ["Üstte gösterme (kilitliyken açılsın)",()=>A.overlayOk(),()=>A.openOverlay()],
+ ["Tam ekran arama (hatırlatma araması)",()=>A.fullScreenOk(),()=>A.openFullScreen()],
+ ["Tam zamanında hatırlatma",()=>A.exactOk(),()=>A.openExact()],
+ ["Bildirim okuma (Teams, Outlook, WhatsApp)",()=>A.notifOk(),()=>A.openNotif()],
+ ["Rehber (kişileri bul)",()=>A.hasContacts(),()=>A.askContacts()],
+ ["Pil kısıtlamasını kaldır (arka planda kapanmasın)",()=>null,()=>A.openBattery()]];
+function refreshPerms(){const box=$("perms");box.innerHTML="";PERMS.forEach(([n,ok,open])=>{const b=document.createElement("button");const v=ok();
+ b.textContent=(v===null?"⚙ ":v?"✓ ":"✗ ")+n;b.onclick=()=>open();box.append(b)})}
+refreshPerms();
+window.nativeVisible=()=>{wakeLabel();refreshPerms();msShow()};
+window.nativeContactsPerm=ok=>{refreshPerms();if(ok)reply("Tamam patron, artık rehberindeki kişileri bulabilirim.")};
+$("tcall").onclick=()=>A.testCall();
+const cp=$("cpick");cp.textContent="📇 Rehberi kullan (izin ver)";cp.onclick=()=>A.askContacts();
+
+/* ---------- Hatırlatmalar: uygulama kapalıyken de "Gandalf arıyor" ---------- */
+rems.filter(r=>r.at>Date.now()).forEach(r=>A.remind(r.at,r.what));
+
+/* ---------- Soru-cevap yardımcıları ---------- */
+let pendYN=null,pendInput=null;
+function askYN(q,yes,no){pendYN={yes,no};add(q,"g");say(q,autoListen)}
+function askIn(q,fn){pendInput=fn;add(q,"g");say(q,autoListen)}
+function tell(m){add(m,"g");say(m)}
+const YES=/^(evet|gönder|tamam|olur|yap|aynen|oku|okuyabilirsin|devam|eminim|evet gönder|tabii|tabi)/,NO=/^(hayır|hayir|iptal|vazgeç|vazgec|gönderme|yok|istemem|boşver|bosver|dur|okuma)/;
+
+/* ---------- Arama / SMS / WhatsApp / konum (telefonun kendisiyle) ---------- */
+doSend=function(ch,c,num,msg){const ad=c?c.ad:num;
+ if(ch==="call"){tell("Tamam patron, "+ad+" aranıyor.");setTimeout(()=>A.call(num),1500);return}
+ if(ch==="wa"){tell("WhatsApp'ta "+ad+" için mesaj hazır, gönder tuşuna bas patron.");setTimeout(()=>A.whatsapp(waNum(num),msg),1800);return}
+ askYN("Patron, "+ad+" kişisine şu SMS'i göndereyim mi: "+msg+"?",()=>A.sms(num,msg),()=>tell("Tamam, göndermedim."))};
+window.nativeSmsResult=(ok,err)=>tell(ok?"SMS gönderildi patron.":"Gönderemedim: "+err);
+getLoc=function(){return new Promise((ok,no)=>{window.nativeLoc=(lat,lon,err)=>{if(err||lat==null)no(new Error(err||"Konum alınamadı."));else ok("https://maps.google.com/?q="+lat.toFixed(6)+","+lon.toFixed(6))};A.getLocation()})};
+
+const STOPW=/^(ara|arar|arasana|aramak|mesaj\S*|sms|whatsapp\S*|watsap\S*|vatsap\S*|wp|konum\S*|gönder\S*|yolla\S*|yaz|yazsana|at|atsana|diye|bir|bana|beni|teams\S*|tims\S*|mail\S*|maili|e-?posta\S*|outlook\S*|son|en|ne|neler|oku|okur|musun|mısın|lütfen|şunu|ki|de|da|ile|için|hatırlat\S*|gelmiş|geldi|mi|mı|var|konu\S*|hakkında|ilgili|bugün|dün|cevap\S*|yanıt\S*|kısaca|detaylı|tüm|bütün|gelen|giden|gönderdiğim|yazmış|yazdı|attığı|gönderdiği)$/;
+const SUFS=["'nın","'nin","'nun","'nün","'dan","'den","'tan","'ten","'ya","'ye","'yı","'yi","'yu","'yü","'a","'e","'ı","'i","'u","'ü","nın","nin","nun","nün","dan","den","tan","ten","yı","yi","yu","yü","ya","ye","ı","i","u","ü","a","e"];
+function nameCands(t){
+ const raw=t.split(/\s+/).map(w=>w.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü'’]/g,"").replace(/’/g,"'")).filter(w=>w.length>=2);
+ const out=[];
+ raw.forEach((w,i)=>{const lw=low(w);if(STOPW.test(lw.replace(/'.*$/,""))||STOPW.test(lw))return;
+  const vars=[];if(lw.includes("'"))vars.push(lw.split("'")[0]);
+  else{vars.push(lw);for(const s of SUFS)if(!s.startsWith("'")&&lw.endsWith(s)&&lw.length-s.length>=3)vars.push(lw.slice(0,-s.length))}
+  const prev=i>0?raw[i-1]:"";
+  if(prev&&/^[A-ZÇĞİÖŞÜ]/.test(prev)&&!STOPW.test(low(prev)))vars.unshift(low(prev)+" "+vars[0]);
+  out.push({w:lw.replace(/'/g,""),vars:[...new Set(vars)],score:(w.includes("'")?0:1)+(i<3?0:1)+(/^[A-ZÇĞİÖŞÜ]/.test(w)?0:1)})});
+ return out.sort((a,b)=>a.score-b.score)}
+const _find=findContact;
+findContact=function(t){const r=_find(t);if(r)return r;
+ if(!/(ara|mesaj|sms|whatsapp|watsap|vatsap|\bwp\b|konum)/i.test(t))return null;
+ for(const c of nameCands(t).slice(0,3))for(const v of c.vars){const x=A.findContact(v);
+  if(x==="PERM"){A.askContacts();return null}
+  if(x){try{const o=JSON.parse(x);return{c:{ad:o.ad,tel:o.tel},k:v,hit:c.w}}catch(e){}}}
+ return null};
+
+/* ---------- İş hesabı: Microsoft Graph ---------- */
+let msSeq=0;const msWait={};let meId="",meName="";
+window.nativeMs=(id,code,txt)=>{const f=msWait[id];delete msWait[id];if(!f)return;let j={};try{j=txt?JSON.parse(txt):{}}catch(e){j={raw:txt}}f({code,j})};
+function msErr(r){if(r.code===401)return"Microsoft hesabına giriş yapılmamış ya da süresi dolmuş. Ayarlar'dan tekrar giriş yap.";
+ if(r.code===403)return"Bu işlem için izin yok. Şirket yöneticisinin onayı gerekebilir.";
+ return(r.j&&r.j.error&&r.j.error.message)||("Microsoft hatası "+r.code)}
+function ms(method,path,body){return new Promise((ok,no)=>{const id="m"+(++msSeq);msWait[id]=r=>{if(r.code>=200&&r.code<300)ok(r.j);else no(new Error(msErr(r)))};A.msApi(id,method,path,body?JSON.stringify(body):"")})}
+function msState(){try{return JSON.parse(A.msState())}catch(e){return{}}}
+function msShow(){const s=msState();$("msc").value=$("msc").value||s.client||"";$("msst").textContent=s.signed?("Bağlı: "+(s.name||"iş hesabı")):(s.client?"Kayıtlı, giriş yapılmadı.":"Bağlı değil. BT'den Client ID ve Tenant ID al.")}
+$("mst").value=store.get("g_mst","");
+$("mss").onclick=()=>{A.msSetup($("msc").value.trim(),$("mst").value.trim());store.set("g_mst",$("mst").value.trim());msShow();tell("Kaydettim patron.")};
+$("msl").onclick=()=>{if(!$("msc").value.trim()){tell("Önce Client ID gir patron.");return}A.msSetup($("msc").value.trim(),$("mst").value.trim());$("msst").textContent="Giriş kodu alınıyor…";A.msLogin()};
+$("mso").onclick=()=>{A.msLogout();msShow();tell("Microsoft hesabından çıktım.")};
+let msUrl="";
+window.nativeMsCode=(code,url)=>{msUrl=url;$("mscv").textContent=code;$("mscode").hidden=false;$("msst").textContent="Kod hazır. Kopyala, giriş sayfasını aç, kodu yapıştır ve iş hesabınla giriş yap.";say("Giriş kodu ekranda patron.")};
+$("mscc").onclick=()=>{A.copyText($("mscv").textContent);$("mscc").textContent="Kopyalandı ✓"};
+$("msco").onclick=()=>A.openUrl(msUrl||"https://microsoft.com/devicelogin");
+window.nativeMsLogin=(ok,msg)=>{$("mscode").hidden=true;msShow();tell(ok?"Patron, iş hesabına bağlandım. "+msg:"Bağlanamadım: "+msg)};
+msShow();
+
+async function me(){if(meId)return;const j=await ms("GET","/me?$select=id,displayName");meId=j.id;meName=j.displayName||""}
+async function msPerson(t){
+ for(const c of nameCands(t).slice(0,3))for(const v of c.vars.slice(0,3)){
+  try{const j=await ms("GET","/me/people?$search="+encodeURIComponent('"'+v+'"')+"&$top=5");
+   const p=(j.value||[]).find(x=>(x.scoredEmailAddresses||[]).length);
+   if(p)return{name:p.displayName,mail:p.scoredEmailAddresses[0].address,hit:c.w}}catch(e){if(/izin|giriş/.test(e.message))throw e}
+  try{const j=await ms("GET","/users?$search="+encodeURIComponent('"displayName:'+v+'"')+"&$top=3&$select=displayName,mail,userPrincipalName");
+   const u=(j.value||[])[0];if(u)return{name:u.displayName,mail:u.mail||u.userPrincipalName,hit:c.w}}catch(e){}}
+ return null}
+const trDate=d=>new Date(d).toLocaleString("tr-TR",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"});
+const strip=h=>String(h||"").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/\s+/g," ").trim();
+function cleanBody(m){let b=String((m.body&&m.body.content)||m.bodyPreview||"");
+ const cut=b.search(/\n\s*(From|Kimden|Gönderen|-----Original|-----Özgün)[: ]/i);if(cut>0)b=b.slice(0,cut);
+ return b.replace(/\s+/g," ").trim()}
+function readLong(prefix,text){const LIM=700;
+ if(text.length<=LIM){tell(prefix+text);return}
+ let i=0;const next=()=>{const part=text.slice(i,i+LIM);i+=LIM;
+  if(i>=text.length){tell(part);return}
+  add(part,"g");say(part,()=>askYN("Devamını okuyayım mı patron?",next,()=>tell("Tamam.")))};
+ add(prefix,"g");say(prefix,next)}
+function topicOf(t,person){const m=t.match(/(.+?)\s+(konusunda|konusuyla|konulu|konusu|hakkında|ile ilgili|ilgili)\b/i);if(!m)return"";
+ return m[1].split(/\s+/).filter(w=>{const lw=low(w).replace(/[^a-zçğıöşü0-9]/g,"");return lw&&!(person&&lw.startsWith(low(person.hit||"").slice(0,4)))&&!STOPW.test(lw)}).join(" ").trim()}
+function msgOf(t,person){let x=t;const ci=x.indexOf(":");if(ci>=0)return x.slice(ci+1).trim();
+ const dm=x.match(/^(.*?)\s+diye\b/i);if(dm)x=dm[1];
+ return x.split(/\s+/).filter(w=>{const lw=low(w).replace(/[^a-zçğıöşü0-9]/g,"");return lw&&!(person&&person.hit&&lw===person.hit)&&!STOPW.test(lw)&&!/^(teams|tims|outlook|mail|eposta)/.test(lw)}).join(" ").trim()}
+function readMail(m){const from=(m.from&&m.from.emailAddress&&m.from.emailAddress.name)||"",when=trDate(m.receivedDateTime||m.sentDateTime);
+ readLong(from+", "+when+" tarihinde, konu: "+(m.subject||"konusuz")+". ",cleanBody(m)||"İçerik boş.")}
+const SEL="$select=subject,from,toRecipients,receivedDateTime,sentDateTime,bodyPreview,body";
+
+async function mailRoute(t,s){
+ const person=/(benim|bana gelen|son mailler|gelen kutu|maillerimi|maillerim|gönderdiğim|giden)/.test(s)&&!/'|’/.test(t)?null:await msPerson(t);
+ const topic=topicOf(t,person);
+ // Gönderme
+ if(/(gönder|yolla|\bat\b|\bat$|\byaz\b|\byaz$)/.test(s)&&!/(gönderdiğim|gönderdiği|gelmiş|geldi|oku)/.test(s)){
+  if(!person){tell("Kime göndereceğimi bulamadım patron. Adını söyleyerek tekrar dene.");return}
+  const finish=(subj,body)=>askYN("Patron, "+person.name+" kişisine '"+subj+"' konulu şu maili göndereyim mi: "+body+"?",async()=>{
+    try{await ms("POST","/me/sendMail",{message:{subject:subj,body:{contentType:"Text",content:body},toRecipients:[{emailAddress:{address:person.mail}}]},saveToSentItems:true});tell("Mail gönderildi patron.")}catch(e){tell("Gönderemedim: "+e.message)}},()=>tell("Tamam, göndermedim."));
+  const getBody=subj=>askIn("Ne yazayım patron?",b=>finish(subj,b));
+  if(topic)getBody(topic);else askIn("Konusu ne olsun patron?",subj=>getBody(subj));
+  return}
+ // Gönderdiğim mailler
+ if(/(gönderdiğim|giden|attığım)/.test(s)){
+  const q=person?"&$search="+encodeURIComponent('"to:'+person.mail+'"'):"&$orderby=sentDateTime desc";
+  const j=await ms("GET","/me/mailFolders/sentitems/messages?$top=5&"+SEL+q);const v=j.value||[];
+  if(!v.length){tell("Gönderilmiş mail bulamadım patron.");return}
+  listMails(v,"Gönderdiğin son mailler: ",m=>"kime: "+((m.toRecipients||[]).map(r=>r.emailAddress.name).join(", ")));return}
+ // Konu soruyor: "X'ten Y konusunda mail gelmiş mi?"
+ if(topic){
+  let found=[];
+  if(person){const j=await ms("GET","/me/messages?$top=5&"+SEL+"&$search="+encodeURIComponent('"from:'+person.mail+' '+topic+'"'));found=j.value||[]}
+  if(found.length){const m=found[0];askYN("Evet patron, "+person.name+" "+trDate(m.receivedDateTime)+" tarihinde '"+m.subject+"' konulu mail göndermiş. Okuyayım mı?",()=>readMail(m),()=>tell("Tamam."));return}
+  const j=await ms("GET","/me/messages?$top=5&"+SEL+"&$search="+encodeURIComponent('"'+topic+'"'));const all=j.value||[];
+  if(!all.length){tell((person?person.name+" kişisinden ":"")+"'"+topic+"' konusunda hiç mail bulamadım patron.");return}
+  const m=all[0],who=(m.from&&m.from.emailAddress&&m.from.emailAddress.name)||"biri";
+  askYN((person?person.name+" kişisinden bu konuda mail yok patron, ama ":"Patron, ")+who+" "+trDate(m.receivedDateTime)+" tarihinde '"+m.subject+"' konulu mail göndermiş. Okumamı ister misin?",()=>readMail(m),()=>tell("Tamam."));return}
+ // Belirli kişiden son mail
+ if(person){const j=await ms("GET","/me/messages?$top=1&"+SEL+"&$search="+encodeURIComponent('"from:'+person.mail+'"'));const m=(j.value||[])[0];
+  if(!m){tell(person.name+" kişisinden mail bulamadım patron.");return}readMail(m);return}
+ // Gelen kutusu
+ const j=await ms("GET","/me/mailFolders/inbox/messages?$top=5&$orderby=receivedDateTime desc&"+SEL);const v=j.value||[];
+ if(!v.length){tell("Gelen kutun boş patron.");return}
+ listMails(v,"Son gelen mailler: ",m=>(m.from&&m.from.emailAddress&&m.from.emailAddress.name)||"")}
+function listMails(v,head,who){
+ const txt=head+v.map((m,i)=>(i+1)+". "+who(m)+", "+(m.subject||"konusuz")).join(". ")+".";
+ add(txt,"g");say(txt,()=>askIn("Hangisini okuyayım patron? Numarasını söyle.",a=>{
+  const n={bir:1,birinci:1,iki:2,ikinci:2,üç:3,üçüncü:3,dört:4,dördüncü:4,beş:5,beşinci:5}[low(a).replace(/[^a-zçğıöşü]/g,"")]||parseInt(a,10);
+  const m=v[(n||0)-1];if(m)readMail(m);else tell("Tamam patron.")}))}
+
+async function teamsChat(person,create){
+ await me();
+ const j=await ms("GET","/me/chats?$filter="+encodeURIComponent("chatType eq 'oneOnOne'")+"&$expand=members&$top=50");
+ const want=low(person.mail);
+ const c=(j.value||[]).find(ch=>(ch.members||[]).some(m=>low(m.email)===want));
+ if(c||!create)return c||null;
+ const bind=u=>({"@odata.type":"#microsoft.graph.aadUserConversationMember",roles:["owner"],"user@odata.bind":"https://graph.microsoft.com/v1.0/users('"+u+"')"});
+ return ms("POST","/chats",{chatType:"oneOnOne",members:[bind(meId),bind(person.mail)]})}
+async function teamsRoute(t,s){
+ const person=await msPerson(t);
+ if(!person){tell("Kimi kastettiğini bulamadım patron. Adını söyleyerek tekrar dene.");return}
+ if(/(ne yazmış|ne yazdı|son mesaj|en son|oku|yazdıklarını|mesajını oku|ne demiş|ne dedi)/.test(s)){
+  const ch=await teamsChat(person,false);
+  if(!ch){tell(person.name+" ile Teams'te yazışma bulamadım patron.");return}
+  const j=await ms("GET","/chats/"+ch.id+"/messages?$top=15");
+  const m=(j.value||[]).filter(x=>x.messageType==="message"&&x.from&&x.from.user&&x.from.user.id!==meId).sort((a,b)=>new Date(b.createdDateTime)-new Date(a.createdDateTime))[0];
+  if(!m){tell(person.name+" sana henüz yazmamış patron.");return}
+  readLong(person.name+", "+trDate(m.createdDateTime)+" tarihinde yazmış: ",strip(m.body&&m.body.content)||"(ek ya da resim)");return}
+ const msg=msgOf(t,person);
+ const go=text=>askYN("Patron, "+person.name+" kişisine Teams'ten şunu göndereyim mi: "+text+"?",async()=>{
+   try{const ch=await teamsChat(person,true);await ms("POST","/chats/"+ch.id+"/messages",{body:{content:text}});tell("Teams mesajı gönderildi patron.")}catch(e){tell("Gönderemedim: "+e.message)}},()=>tell("Tamam, göndermedim."));
+ if(msg)go(msg);else askIn("Ne yazayım patron?",go)}
+
+/* ---------- Bildirimlerden okuma (iş hesabına bağlanmadan) ---------- */
+function notifRoute(t,s,app){
+ if(!A.notifOk()){tell("Patron, bunun için Ayarlar'dan 'Bildirim okuma' iznini ver ya da iş hesabına bağlan.");return}
+ let items=[];try{items=JSON.parse(A.notifList())}catch(e){}
+ items=items.filter(x=>x.app===app);
+ const nc=nameCands(t),cands=nc.flatMap(c=>c.vars);
+ const hit=items.slice().reverse().find(x=>cands.some(v=>low(x.from+" "+x.sub).includes(v)));
+ if(/(cevap|yanıt|yaz|gönder|\bat\b)/.test(s)&&!/(ne yazdı|ne yazmış|oku)/.test(s)){
+  if(!hit||!A.notifCanReply(hit.id)){tell("Bu kişiden cevaplanabilir bir "+app+" bildirimi yok patron. Yeni mesaj göndermek için iş hesabına bağlanmam gerekiyor.");return}
+  const msg=msgOf(t,{hit:nc[0]&&nc[0].w});
+  const go=m=>askYN("Patron, "+hit.from+" kişisine "+app+" üzerinden şu cevabı göndereyim mi: "+m+"?",()=>tell(A.notifReply(hit.id,m)?"Cevap gönderildi patron.":"Gönderemedim patron, bildirim kapanmış olabilir."),()=>tell("Tamam, göndermedim."));
+  if(msg)go(msg);else askIn("Ne yazayım patron?",go);return}
+ if(!hit){tell("Bildirimlerde bu kişiden "+app+" mesajı yok patron. Geçmişe bakmam için iş hesabına bağlanmam gerekiyor.");return}
+ readLong(hit.from+", "+trDate(hit.time)+" tarihinde yazmış: ",hit.text)}
+
+async function msRoute(t){
+ const s=low(t);
+ const isTeams=/(teams|tims|tiims)/.test(s),isMail=/(mail|e-?posta|eposta|outlook|meyl)/.test(s);
+ if(!isTeams&&!isMail)return false;
+ add(t,"u");
+ const signed=!!msState().signed;
+ document.body.classList.add("think");setSt(isTeams?"Teams'e bakıyorum…":"Maillerine bakıyorum…");
+ try{
+  if(!signed)notifRoute(t,s,isTeams?"Teams":"Outlook");
+  else if(isTeams)await teamsRoute(t,s);
+  else await mailRoute(t,s);
+ }catch(e){tell("Patron, olmadı: "+e.message)}
+ finally{document.body.classList.remove("think");setSt("")}
+ return true}
+
+/* ---------- Komut sırası ---------- */
+const _handle=handle;
+handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+ if(pendInput){add(t,"u");const f=pendInput;pendInput=null;if(NO.test(s)&&s.split(/\s+/).length<=2){tell("Tamam patron, vazgeçtim.");return}return f(t)}
+ if(pendYN){const p=pendYN;if(YES.test(s)){add(t,"u");pendYN=null;return p.yes()}if(NO.test(s)){add(t,"u");pendYN=null;return p.no&&p.no()}pendYN=null}
+ if(await msRoute(t))return;
+ return _handle(t,quick)};
+
+$("cap").textContent="";
+add("Selam patron, ben Gandalf. 'Uyandırma'yı açarsan telefon kilitliyken bile 'Gandalf' demen yeterli. Ayarlar'dan izinleri vermeyi unutma.","g");
+})();
+
 </script>
 </body>
 </html>
