@@ -192,7 +192,7 @@ setInterval(()=>{const now=Date.now(),due=rems.filter(r=>r.at<=now);if(!due.leng
   if("Notification"in window&&Notification.permission==="granted")new Notification("Gandalf",{body:r.what})})},1000);
 
 /* ---- Araştırma ---- */
-const SYS="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya her zaman 'patron' diye hitap et, saygılı ama sıcak ol. Altın, döviz, borsa, hava, haber gibi güncel sorularda mutlaka Google aramasını kullan ve güncel rakamı söyle. Soruları güncel internet aramasıyla araştır ve en fazla 3-4 kısa cümleyle özetle. Madde işareti, markdown ve yıldız kullanma. Sesli okunacağı için sade yaz. Emin değilsen söyle.";
+let SYS="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya her zaman 'patron' diye hitap et, saygılı ama sıcak ol. Altın, döviz, borsa, hava, haber gibi güncel sorularda mutlaka Google aramasını kullan ve güncel rakamı söyle. Soruları güncel internet aramasıyla araştır ve en fazla 3-4 kısa cümleyle özetle. Madde işareti, markdown ve yıldız kullanma. Sesli okunacağı için sade yaz. Emin değilsen söyle.";
 const SYS_LONG="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya 'patron' diye hitap et. Soruyu güncel internet aramasıyla iyice araştır ve konuyu ayrıntılı anlat: önce bir cümlelik özet, sonra 4-7 paragrafta neyin ne olduğu, nedenleri, önemli rakamlar, tarihler, farklı görüşler ve son durum. En sonda 'Kısacası' ile başlayan bir özet cümlesi yaz. Başlık, madde işareti, markdown ve yıldız kullanma; paragraflar arasında boş satır bırak. Sesli okunacak, sade yaz. Emin olmadığın yeri belirt, rakam uydurma.";
 let DETAIL=false,lastQ="";
 const LONGRE=/(detaylı|detayli|ayrıntılı|ayrintili|uzun uzun|uzunca|tamamını|tamamini|her şeyiyle|derinlemesine|enine boyuna|baştan sona|geniş geniş|tüm detay)/i,SHORTRE=/(kısaca|kisaca|özetle|ozetle|kısa kısa|tek cümle)/i,MORERE=/^(detaylı|ayrıntılı|daha detaylı|devamını|devam|tamamını|daha fazla|uzun)( (anlat|anlatır mısın|ver|bilgi ver|açıkla|oku))?( patron| gandalf)?[.!?]*$/i;
@@ -273,7 +273,7 @@ $("voice").onchange=()=>{store.set("g_voice",$("voice").value);say("Merhaba patr
 $("mode").onchange=()=>{mode=$("mode").value;store.set("g_mode",mode)};
 const REMOTE=/^https?:$/.test(location.protocol);const OLLHOSTS=[];let OLL=OLLHOSTS[0];let localModel="";
 function warm(){if(PHONE||mode==="gemini")return;(async()=>{try{await localAsk.__warm()}catch(e){}})()}
-const SYS_LOCAL="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya her zaman 'patron' diye hitap et, sıcak ve saygılı ol. En fazla 2-3 kısa cümleyle cevap ver. Madde işareti ve markdown kullanma, sesli okunacak. ÖNEMLİ: Şu an internete erişimin yok. Altın, döviz, borsa, petrol, hava, haber, skor gibi güncel bilgi gerektiren sorularda rakam uydurma; güncel veriye erişemediğini söyle ve internet bağlantılı moda geçmesini öner.";
+let SYS_LOCAL="Sen Gandalf adında, Türkçe konuşan bir asistansın. Kullanıcıya her zaman 'patron' diye hitap et, sıcak ve saygılı ol. En fazla 2-3 kısa cümleyle cevap ver. Madde işareti ve markdown kullanma, sesli okunacak. ÖNEMLİ: Şu an internete erişimin yok. Altın, döviz, borsa, petrol, hava, haber, skor gibi güncel bilgi gerektiren sorularda rakam uydurma; güncel veriye erişemediğini söyle ve internet bağlantılı moda geçmesini öner.";
 async function liveData(q){
  if(!/altın|altin|gold|dolar|euro|döviz|doviz|sterlin|kur\b/i.test(q))return "";
  const get=async u=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),4000);try{const r=await fetch(u,{signal:c.signal});return await r.json()}finally{clearTimeout(t)}};
@@ -719,13 +719,14 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
 (function(){
 if(!window.Android)return;
 const A=window.Android;
+const NM=()=>{try{return A.wakeName?A.wakeName():"Gandalf"}catch(e){return "Gandalf"}};
 const low=s=>String(s||"").toLocaleLowerCase("tr-TR");
 document.body.classList.add("native");
 
 /* ---------- Ayarlar paneli ---------- */
 const panel=document.createElement("div");
 panel.innerHTML=`
- <div class="sub nh">Uyandırma ("Gandalf" deyince açılsın)</div>
+ <div class="sub nh" id="wtitle">Uyandırma ("Gandalf" deyince açılsın)</div>
  <div class="sub" id="wst" style="text-align:left">Durum: …</div>
  <div class="row"><button id="calb">🎙 Sesimi öğret</button><button id="calx">Öğrenileni sil</button></div>
  <div class="sub" id="calst" style="text-align:left"></div>
@@ -766,7 +767,7 @@ fillVoices=function(){const el=$("voice");let vs=[];try{vs=JSON.parse(A.voices()
  const cur=store.get("g_voice","");
  el.innerHTML='<option value="">Otomatik</option>'+vs.map((v,i)=>'<option value="'+v.name+'">Türkçe ses '+(i+1)+(v.net?" (internetli)":"")+'</option>').join("");
  el.value=cur;
- el.onchange=()=>{store.set("g_voice",el.value);A.setVoice(el.value);say("Merhaba patron, ben Gandalf.")}};
+ el.onchange=()=>{store.set("g_voice",el.value);A.setVoice(el.value);say("Merhaba patron, ben "+NM()+".")}};
 fillVoices();
 
 /* ---------- Dinleme ---------- */
@@ -774,7 +775,7 @@ let lis=false;
 $("mic").onclick=()=>{if(lis){A.stopListen();return}hush();A.listen()};
 window.nativeListen=on=>{lis=!!on;$("mic").classList.toggle("on",lis);setSt(lis?"Dinliyorum… söyle.":"")};
 window.nativeResult=t=>{handle(t)};
-window.nativeNoSpeech=()=>{setSt("Duyamadım patron. Mikrofona tekrar bas ya da 'Gandalf' de.");A.resumeWake()};
+window.nativeNoSpeech=()=>{setSt("Duyamadım patron. Mikrofona tekrar bas ya da '"+NM()+"' de.");A.resumeWake()};
 window.nativeListenError=c=>{setSt("Dinleme hatası ("+c+"). Tekrar dene.");A.resumeWake()};
 autoListen=function(){A.listen()};
 $("q").placeholder="Sor, ara, mesaj at, mail oku…";
@@ -789,7 +790,7 @@ if(A.wakeWanted()&&!A.wakeOn())A.setWake(true);
 setTimeout(wakeLabel,900);setInterval(wakeLabel,6000);
 
 let calHeard=[];
-$("calb").onclick=()=>{calHeard=[];$("calst").textContent="Şimdi aralarında birer saniye bekleyerek 3 kere 'Gandalf' de…";
+$("calb").onclick=()=>{calHeard=[];$("calst").textContent="Şimdi aralarında birer saniye bekleyerek 3 kere '"+NM()+"' de…";
  if(!A.wakeOn())A.setWake(true);setTimeout(()=>A.calib(true),900)};
 window.nativeCalib=t=>{calHeard.push(t);$("calst").textContent="Duyduğum: "+calHeard.join(" | ");
  if(calHeard.length>=3){A.calib(false);
@@ -1115,7 +1116,7 @@ if(typeof A.googleAsk==="function"){
 let wakeWait=0,wakeTimer=null;
 const keep=on=>{try{A.keepListen&&A.keepListen(on)}catch(e){}};
 const wakeStop=()=>{wakeWait=0;clearTimeout(wakeTimer);wakeTimer=null};
-window.nativeWake=()=>{hush();wakeStop();wakeWait=1;keep(true);$("cap").textContent="Buyur patron";say("Buyur patron.",()=>A.listen())};
+window.nativeWake=()=>{hush();wakeStop();wakeWait=1;keep(true);const wr=store.get("g_wreply","Sizi dinliyorum patron.");$("cap").textContent=wr;say(wr,()=>A.listen())};
 const wakeAgain=()=>{
  keep(false);
  if(wakeWait<4){wakeWait++;setSt("Bekliyorum patron…");
@@ -1123,7 +1124,7 @@ const wakeAgain=()=>{
  setSt("Cevap gelmedi, birazdan arayacağım…");
  wakeTimer=setTimeout(()=>{if(!wakeWait)return;wakeStop();
   if(typeof A.wakeCall==="function")say("Cevap gelmedi, seni arıyorum patron.",()=>A.wakeCall());
-  else say("Tamam patron, ihtiyacın olursa Gandalf de.")},30000);
+  else say("Tamam patron, ihtiyacın olursa "+NM()+" de.")},30000);
  return true};
 const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return wakeAgain();return _wns()};
 const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
@@ -1185,7 +1186,7 @@ if(typeof A.updCheck==="function"){
   if(st==="info"){let j={};try{j=JSON.parse(v)}catch(e){}
    if(j.err){if(updManual){$("ust").textContent="Kontrol edilemedi: "+j.err;tell("Güncellemeyi kontrol edemedim patron, internet bağlantısına bak.")}return}
    if(j.has){$("ust").textContent="Yeni sürüm var: "+j.newName+" (sende "+j.curName+")";
-    askYN("Patron, Gandalf'ın yeni sürümü var: "+j.newName+". Güncelleyeyim mi?",()=>{tell("Tamam, indiriyorum patron.");A.updInstall()},()=>tell("Tamam, sonra güncelleriz."))}
+    askYN("Patron, "+NM()+"'ın yeni sürümü var: "+j.newName+". Güncelleyeyim mi?",()=>{tell("Tamam, indiriyorum patron.");A.updInstall()},()=>tell("Tamam, sonra güncelleriz."))}
    else{$("ust").textContent="Sürüm güncel ("+j.curName+")";if(updManual)tell("Sürüm güncel patron. Sende en son sürüm var: "+j.curName+".")}}
   else if(st==="prog"){$("ust").textContent="İndiriliyor… %"+v}
   else if(st==="perm"){$("ust").textContent="Önce izin ver: açılan ekranda 'Bu kaynaktan izin ver'i aç, sonra tekrar Güncelle'ye bas.";tell("Patron, güncellemeyi kurabilmem için açılan ekranda izin ver. Sonra tekrar güncelle de.")}
@@ -1316,6 +1317,33 @@ async function weatherRoute(t,s){
   if(window.__wakeStop)window.__wakeStop();
   if(/(hava durumu|hava nasıl|havalar nasıl|kaç derece|yağmur yağacak|yağmur var mı|kar yağacak|şemsiye|hava soğuk mu|hava sıcak mı|havası nasıl)/.test(s)&&!/(televizyon|\btv\b)/.test(s))return weatherRoute(t,s);
   return _hw(t,quick)};}
+
+/* ---------- Asistanın adı ve seslenince söyleyeceği söz ---------- */
+if(typeof A.setWakeName==="function"){
+ const SYS0=SYS,SYSL0=SYS_LOCAL;
+ const applyName=n=>{const h=document.querySelector("h1");if(h)h.textContent=n;document.title=n;
+  SYS=SYS0.replace(/Gandalf/g,n);SYS_LOCAL=SYSL0.replace(/Gandalf/g,n);
+  const wt=$("wtitle");if(wt)wt.textContent='Uyandırma ("'+n+'" deyince açılsın)'};
+ const nd=document.createElement("div");
+ nd.innerHTML=`<div class="sub nh">Asistanın adı (seslenme kelimesi)</div>
+ <div class="row"><input id="wname" placeholder="Gandalf" style="flex:1;min-width:0"><button id="wnsave">Kaydet</button></div>
+ <div class="sub nh">Seslenince ne desin</div>
+ <div class="row"><input id="wreply" placeholder="Sizi dinliyorum patron." style="flex:1;min-width:0"><button id="wrsave">Kaydet</button></div>`;
+ const wt=$("wtitle");wt.parentNode.insertBefore(nd,wt);
+ $("wname").value=NM();$("wreply").value=store.get("g_wreply","Sizi dinliyorum patron.");
+ applyName(NM());
+ $("wnsave").onclick=()=>{const v=$("wname").value.trim().replace(/\s+/g," ");if(!v)return;
+  if(v.replace(/[^A-Za-zÇĞİÖŞÜçğıöşü]/g,"").length<3){tell("Patron, ad en az 3 harf olmalı.");return}
+  A.setWakeName(v);applyName(v);
+  tell("Tamam patron, artık adım "+v+". Seni daha iyi duymam için Sesimi öğret tuşuna basıp aralarında birer saniye bekleyerek 3 kez "+v+" de.")};
+ $("wrsave").onclick=()=>{const v=$("wreply").value.trim()||"Sizi dinliyorum patron.";store.set("g_wreply",v);tell("Tamam, seslenince '"+v+"' diyeceğim.")};
+}
+
+/* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
+setInterval(()=>{try{
+ const busy=lis||document.body.classList.contains("talk")||document.body.classList.contains("think")||wakeWait||pendYN||pendInput||(typeof convo!=="undefined"&&convo);
+ if(!busy&&A.wakeWanted&&A.wakeWanted())A.resumeWake();
+}catch(e){}},4000);
 })();
 
 </script>
