@@ -118,7 +118,7 @@ summary{padding:6px 0}
  <div class="row phonehide"><input id="ajp" placeholder="Netflix profil adı (örn: Ahmet)"></div>
  <div class="row phonehide"><input id="lm" placeholder="Yerel model adı (boşsa otomatik, örn: llama3.2:1b)"></div>
  <div class="row"><input id="yt" type="password" placeholder="YouTube Data API anahtarı (isteğe bağlı, şarkıyı sayfada çalar)"></div>
- <div class="sub">Telefon sürümü: beyin Gemini (internet aramalı). Anahtar sadece bu telefonda saklanır. Hatırlatmalar için sayfa açık kalmalı. Netflix ve bilgisayar komutları için evde PC ajanının adresini kullan.</div>
+ <div class="sub">Beyin sırası: Gemini (internet aramalı) → Groq → ücretsiz yedek → telefondaki model. Anahtarlar sadece bu telefonda saklanır. Hatırlatmalar için sayfa açık kalmalı. Netflix ve bilgisayar komutları için evde PC ajanının adresini kullan.</div>
  <div class="sub" style="text-align:left;margin-top:10px">Kişiler (arama, SMS, WhatsApp için)</div>
  <div class="row"><input id="cname" placeholder="Ad (örn: Annem)" autocomplete="off"><input id="ctel" type="tel" placeholder="Numara (05xx…)"><button id="cadd">Ekle</button></div>
  <div class="row"><button id="cpick">📇 Rehberden seç</button></div>
@@ -322,6 +322,7 @@ async function ask(q,forceLong){
   const gFirst=mode==="auto"&&!!key&&FRESH.test(q);
   const tryLocal=async()=>{prog("Yerel model düşünüyor… (ilk cevap yavaş olabilir)");try{txt=await localAsk(t=>{w.textContent=t;$("cap").textContent=t})}catch(e){lerr=e}};
   const tryGemini=async()=>{
+   if(window.localOnly&&window.localOnly()&&window.localBrain){prog("Telefondaki model düşünüyor…");try{txt=await window.localBrain()||"";gerr=null;if(!txt)gerr=new Error("Telefondaki model henüz indirilmemiş. Ayarlar'dan indir.")}catch(e){gerr=e}return}
    const ks=allKeys();
    if(ks.length){
    prog(gFirst?"İnternetten araştırıyorum…":"Araştırıyorum…");
@@ -342,6 +343,8 @@ async function ask(q,forceLong){
     try{const live=await liveData(q).catch(()=>"");if(live)hist[hist.length-1]={role:"user",parts:[{text:q+"\n\nGüncel veri: "+live}]};
      txt=await pollAsk();gerr=null;if(!live&&FRESH.test(q))note=" (ücretsiz yedekle cevapladım, en güncel bilgi olmayabilir)"}
     catch(e){gerr=gerr||e}}
+   if(!txt&&window.localBrain){prog("İnternet servisleri olmadı, telefondaki modele soruyorum…");
+    try{const t=await window.localBrain();if(t){txt=t;gerr=null;note=" (telefondaki modelle cevapladım, güncel bilgi olmayabilir)"}}catch(e){gerr=gerr||e}}
   };
   if(gFirst){await tryGemini();if(!txt){await tryLocal();if(txt)note=" (Gemini olmadı, yerel modelle cevapladım; güncel bilgi olmayabilir)"}}
   else{
@@ -991,6 +994,38 @@ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t
 
 $("cap").textContent="";
 add("Selam patron, ben Gandalf. 'Uyandırma'yı açarsan telefon kilitliyken bile 'Gandalf' demen yeterli. Ayarlar'dan izinleri vermeyi unutma.","g");
+/* ---------- Telefondaki yapay zekâ (internetsiz, sınırsız) ---------- */
+{
+if(typeof A.llmState==="function"){
+const box=document.createElement("div");
+box.innerHTML=`<div class="sub nh">Telefondaki yapay zekâ (internetsiz, kotasız)</div>
+ <div class="sub" id="llst" style="text-align:left">…</div>
+ <div class="row"><button id="lldl">⬇ İndir (1,6 GB, Wi-Fi'de)</button><button id="lldel">Sil</button></div>
+ <label style="display:flex;align-items:center;gap:12px;margin:8px 0;text-align:left"><input type="checkbox" id="llonly" style="width:24px;height:24px;flex:none;margin:0"> Hep telefondaki modeli kullan (internete hiç gitme)</label>`;
+const anchor=$("perms").previousElementSibling;anchor.parentNode.insertBefore(box,anchor);
+const st=()=>{try{return JSON.parse(A.llmState())}catch(e){return{}}};
+let timer=null;
+function show(){const s=st();let t;
+ if(s.error)t="✗ "+s.error;
+ else if(s.downloading)t="İndiriliyor… %"+s.pct+" (bildirimden de izleyebilirsin)";
+ else if(s.downloaded)t="✓ Hazır ("+s.sizeMB+" MB)."+(s.loaded?" Hafızada, hızlı cevap verir.":s.loading?" Yükleniyor…":" İlk soruda birkaç saniye yüklenir.");
+ else t="İndirilmedi. İnternet kotası dolunca ya da internet yokken bununla cevap veririm.";
+ $("llst").textContent=t;$("lldl").hidden=!!(s.downloaded||s.downloading);$("lldel").hidden=!s.downloaded;
+ if(s.downloading&&!timer)timer=setInterval(show,2000);if(!s.downloading&&timer){clearInterval(timer);timer=null}}
+$("lldl").onclick=()=>{A.llmDownload();setTimeout(show,800);tell("İndirme başladı patron. Wi-Fi'de bitince haber veririm.")};
+$("lldel").onclick=()=>{A.llmDelete();setTimeout(show,500)};
+$("llonly").checked=store.get("g_lonly",false);
+$("llonly").onchange=()=>{store.set("g_lonly",$("llonly").checked);if($("llonly").checked)A.llmWarm()};
+show();setD.addEventListener("toggle",show);
+let seq=0;const wait={};
+window.nativeLlm=(id,ok,t)=>{const f=wait[id];delete wait[id];if(f)f(ok,t)};
+window.localOnly=()=>!!store.get("g_lonly",false);
+window.localBrain=()=>{const s=st();if(!s.downloaded)return Promise.resolve(null);
+ const last=hist.slice(-3).map(m=>(m.role==="model"?"Gandalf: ":"Patron: ")+(m.parts||[]).map(p=>p.text||"").join("")).join("\n");
+ return new Promise((ok,no)=>{const id="l"+(++seq);wait[id]=(good,t)=>good?ok(t.replace(/[*#]+/g,"").trim()):no(new Error(t));A.llmAsk(id,SYS_LOCAL,last)})};
+if(window.localOnly())A.llmWarm();
+}}
+
 })();
 
 </script>
