@@ -1026,6 +1026,46 @@ window.localBrain=()=>{const s=st();if(!s.downloaded)return Promise.resolve(null
 if(window.localOnly())A.llmWarm();
 }}
 
+/* ---------- Hatırlatma araması sonrası sohbet ---------- */
+{
+let convo=false,convoMiss=0;
+const END=/^(kapat|kapatıyorum|kapatiyorum|görüşürüz|gorusuruz|hoşça kal|hosca kal|tamam bu kadar|bu kadar|yok sağ ?ol|yok teşekkür|yok tesekkur|başka bir şey yok|baska bir sey yok|iyi geceler|iyi günler)/;
+window.nativeConvo=rem=>{convo=true;convoMiss=0;$("cap").textContent="Seni dinliyorum patron. Bitirmek için 'kapatıyorum' de.";A.listen()};
+const _sd=window.nativeSpeakDone;
+window.nativeSpeakDone=function(){_sd();if(convo)setTimeout(()=>{if(convo&&!lis&&!pendYN&&!pendInput&&!document.body.classList.contains("talk")&&!document.body.classList.contains("think"))A.listen()},500)};
+const _ns=window.nativeNoSpeech;
+window.nativeNoSpeech=()=>{if(!convo)return _ns();convoMiss++;if(convoMiss>=2){convo=false;say("Ses gelmedi, kapatıyorum patron. Görüşürüz.",()=>A.endConvo&&A.endConvo())}else A.listen()};
+const _h=handle;
+handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+ if(convo){convoMiss=0;if(END.test(s)){add(t,"u");convo=false;say("Görüşürüz patron.",()=>A.endConvo&&A.endConvo());return}}
+ if(typeof A.waVoiceTts==="function"&&/(sesli mesaj|ses mesaj|ses kayd|sesli not)/.test(s)){add(t,"u");return voiceRoute(t,s)}
+ return _h(t,quick)};
+
+/* ---------- WhatsApp: otomatik gönderme ve sesli mesaj ---------- */
+if(typeof A.waAutoOk==="function"){
+ PERMS.splice(4,0,["WhatsApp'ta otomatik gönder (Erişilebilirlik > Gandalf)",()=>A.waAutoOk(),()=>A.openAccessibility()]);refreshPerms();
+ const _ds=doSend;
+ doSend=function(ch,c,num,msg){
+  if(ch==="wa"&&A.waAutoOk()){const ad=c?c.ad:num;
+   askYN("Patron, "+ad+" kişisine WhatsApp'tan şunu göndereyim mi: "+msg+"?",()=>{tell("Gönderiyorum patron.");setTimeout(()=>A.whatsapp(waNum(num),msg),1200)},()=>tell("Tamam, göndermedim."));return}
+  return _ds(ch,c,num,msg)};
+ window.nativeSent=()=>tell("WhatsApp'tan gönderildi patron.");
+}
+let recNum="",recAd="";
+function voiceRoute(t,s){
+ const ct=findContact(t+" whatsapp");
+ if(!ct){tell("Kime göndereceğimi bulamadım patron. Kişinin adını söyleyerek tekrar dene.");return}
+ const num=waNum(ct.c.tel),ad=ct.c.ad;
+ const body=extractMsg(t,ct).split(/\s+/).filter(w=>!/^(sesli|sesle|ses|mesaj\S*|kayd\S*|kaydı|not|olarak|whatsapp\S*|watsap\S*)$/i.test(w)).join(" ").trim();
+ if(body){const full="Merhaba, ben Gandalf. Ahmet'in mesajı şu: "+body;
+  askYN("Patron, "+ad+" kişisine Gandalf'ın sesiyle şu sesli mesajı göndereyim mi: "+body+"?",()=>{tell("Hazırlıyorum patron.");A.waVoiceTts(num,full)},()=>tell("Tamam, göndermedim."));return}
+ recNum=num;recAd=ad;add("Konuş patron, kaydediyorum. Bitince birkaç saniye sus.","g");
+ say("Konuş patron, kaydediyorum. Bitince sus.",()=>{setSt("● Kaydediyorum… (bitince sus)");A.recStart()})}
+window.nativeRecDone=(ok,msg)=>{setSt("");if(!ok){tell(msg);return}
+ askYN("Kaydı "+recAd+" kişisine WhatsApp'tan göndereyim mi patron?",()=>A.recSend(recNum),()=>tell("Tamam, göndermedim."))};
+window.nativeVoiceSent=(ok,err)=>{if(!ok)tell("Sesli mesaj gönderilemedi: "+err);else if(!A.waAutoOk())tell("WhatsApp'ta sesli mesaj hazır, gönder tuşuna bas patron.")};
+}
+
 })();
 
 </script>
