@@ -1124,6 +1124,41 @@ const wakeAgain=()=>{
 const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return wakeAgain();return _wns()};
 const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
 const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeWait=0;keep(false)}return _wr(t)};
+
+/* ---------- LG televizyon (kızılötesi) ve uygulama açma ---------- */
+if(typeof A.tv==="function"){
+ const NUMW={bir:1,iki:2,"üç":3,uc:3,"dört":4,dort:4,"beş":5,bes:5,"altı":6,alti:6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,yirmi:20};
+ const times=s=>{let m=s.match(/(\d+)\s*(kere|kez|defa|sefer|tık|tik|kademe|birim)/);if(m)return +m[1];
+  for(const w of Object.keys(NUMW).sort((a,b)=>b.length-a.length)){if(new RegExp("(^|\\s)"+w+"\\s+(kere|kez|defa|sefer|tık|tik|kademe|birim)").test(s))return NUMW[w]}
+  if(/\bçok\b|iyice|epey/.test(s))return 6;if(/biraz|az\b/.test(s))return 3;return 1};
+ const tvCmd=s=>{let m;
+  if(/(ses\S*).*(kıs|azalt|düşür|indir)|(kıs|azalt)\S*.*ses/.test(s))return["voldown","sesi kıstım"];
+  if(/(ses\S*).*(aç|artır|arttır|yükselt|açsana)|(artır|yükselt)\S*.*ses/.test(s))return["volup","sesi açtım"];
+  if(/sessiz|sesi kapat|sesini kapat|sesi kes|sesini kes/.test(s))return["mute","sessize aldım"];
+  if(m=s.match(/kanal\S*\s+(\d+)/))return[m[1],m[1]+". kanala geçtim"];
+  if(/kanal\S*.*(ileri|sonraki|değiştir|yukarı|artır)/.test(s))return["chup","kanalı değiştirdim"];
+  if(/kanal\S*.*(geri|önceki|aşağı|azalt)/.test(s))return["chdown","önceki kanala geçtim"];
+  if(/(kaynak|giriş|input|hdmi)/.test(s))return["input","kaynak tuşuna bastım"];
+  if(/ana ?sayfa|home/.test(s))return["home","ana sayfayı açtım"];
+  if(/\bgeri\b/.test(s))return["back","geri tuşuna bastım"];
+  if(/\b(tamam|ok|onayla)\b/.test(s))return["ok","tamama bastım"];
+  if(/(kapat|aç)/.test(s))return["power",/kapat/.test(s)?"televizyonu kapattım":"televizyonu açtım"];
+  return null};
+ const _ht=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(/(televizyon|\btv\b|tivi|televizyo)/.test(s)||(/^(sesi|sesini)\s/.test(s)&&/(kıs|aç|artır|azalt)/.test(s)&&!/(telefon|müzik)/.test(s))){
+   const c=tvCmd(s);
+   if(c){add(t,"u");const n=c[0].match(/^\d+$/)?1:times(s);
+    const r=A.tv(c[0],n);
+    if(r==="ok")tell("Tamam patron, "+(n>1?n+" kez ":"")+c[1]+".");
+    else if(r==="noir")tell("Patron, bu telefonda kızılötesi verici bulamadım. Televizyonu buradan kontrol edemiyorum.");
+    else tell("Televizyona sinyal gönderemedim patron. Telefonun üst ucunu televizyona doğru tut.");
+    return}}
+  let m=s.match(/^(.+?)\s+(uygulamasını|uygulamayı|programını)\s+(aç|başlat)/);
+  if(m&&typeof A.openApp==="function"){add(t,"u");const r=A.openApp(m[1].replace(/^(gandalf|patron)\s+/,""));
+   tell(r?"Açıyorum patron: "+r+".":"Patron, "+m[1]+" adında bir uygulama bulamadım.");return}
+  return _ht(t,quick)};
+}
 })();
 
 </script>
