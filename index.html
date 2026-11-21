@@ -1296,18 +1296,24 @@ const WMO={0:"açık",1:"az bulutlu",2:"parçalı bulutlu",3:"kapalı",45:"sisli
 async function weatherRoute(t,s){
  add(t,"u");document.body.classList.add("think");setSt("Hava durumuna bakıyorum…");
  try{
-  let lat,lon,place="";
-  const m=s.match(/([a-zçğıöşü]+?)(?:['’]?(?:da|de|ta|te)|\s+için)\s+(yarın\s+|bugün\s+)?(hava|yağmur|kar|sıcaklık|kaç derece)/);
-  const city=m&&!/^(bura|şura|burda|ev|dışarı|bugün|yarın|şimdi)/.test(m[1])?m[1]:null;
-  if(city){const g=await(await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=tr&name="+encodeURIComponent(city))).json();
-   const r=g.results&&g.results[0];if(!r){tell(city+" diye bir yer bulamadım patron.");return}
-   lat=r.latitude;lon=r.longitude;place=r.name}
-  else{const u=await getLoc();const q=u.match(/q=(-?[\d.]+),(-?[\d.]+)/);lat=+q[1];lon=+q[2]}
+  let lat,lon,place="",city=null;
+  const WSTOP=/^(hava|havası|havasını|havaya|durumu|durumuna|durumunu|durumuna|durum|nasıl|nasil|ne|nedir|yarın|yarınki|yarin|bugün|bugünkü|şu|an|şimdi|bakar|bak|baksana|bakabilir|misin|mısın|musun|müsün|söyle|söyler|söylesene|kaç|derece|için|olacak|olur|yağmur|yağacak|yağıyor|kar|var|mı|mi|mu|mü|acaba|patron|gandalf|lütfen|soğuk|sıcak|bu|hafta|sonu|akşam|sabah|öğlen|ki|da|de|şemsiye|almalı|mıyım|miyim|gerekir|gerek|bana|bi|bir|tahmini|tahmin|sıcaklık|nem|rüzgar|orada|orası|burada|burası|ve|ile|en|yüksek|düşük|günü|gün|olsun|öğren|getir|bul|yer|yerde|bulunduğum)$/;
+  const cands=[];
+  for(const w0 of s.split(/\s+/)){const w=w0.replace(/[?.!,;:"]/g,"");if(!w)continue;
+   const base=w.replace(/['’].*$/,"");if(WSTOP.test(base)||base.length<3)continue;
+   if(/['’]/.test(w))cands.push(base);
+   else{cands.push(w);const st=w.replace(/(nın|nin|nun|nün|ın|in|un|ün|da|de|ta|te|dan|den|tan|ten)$/,"");if(st!==w&&st.length>=3)cands.push(st)}}
+  for(const c of cands){
+   try{const g=await(await fetch("https://geocoding-api.open-meteo.com/v1/search?count=5&language=tr&name="+encodeURIComponent(c))).json();
+    const rs=g.results||[];const r=rs.find(x=>x.country_code==="TR")||rs[0];
+    if(r){lat=r.latitude;lon=r.longitude;place=r.name;city=c;break}}catch(e){}}
+  if(!city&&cands.length&&!/(bura|bulunduğum|olduğum|evde)/.test(s)){tell(cands[0]+" diye bir yer bulamadım patron.");return}
+  if(!city){const u=await getLoc();const q=u.match(/q=(-?[\d.]+),(-?[\d.]+)/);lat=+q[1];lon=+q[2]}
   const w=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=3`)).json();
   const R=x=>Math.round(x),d=w.daily,c=w.current,tom=/yarın/.test(s),i=tom?1:0;
   let msg;
-  if(tom)msg=`Patron, yarın ${city?place+"'da ":""}hava ${WMO[d.weather_code[1]]||"değişken"}. En yüksek ${R(d.temperature_2m_max[1])}, en düşük ${R(d.temperature_2m_min[1])} derece. Yağış ihtimali yüzde ${d.precipitation_probability_max[1]??0}.`;
-  else msg=`Patron, ${city?place+"'da":"bulunduğun yerde"} hava şu an ${WMO[c.weather_code]||"değişken"}, ${R(c.temperature_2m)} derece, hissedilen ${R(c.apparent_temperature)}. Bugün en yüksek ${R(d.temperature_2m_max[0])}, en düşük ${R(d.temperature_2m_min[0])} derece, yağış ihtimali yüzde ${d.precipitation_probability_max[0]??0}.`;
+  if(tom)msg=`Patron, yarın ${city?place+" için ":""}hava ${WMO[d.weather_code[1]]||"değişken"}. En yüksek ${R(d.temperature_2m_max[1])}, en düşük ${R(d.temperature_2m_min[1])} derece. Yağış ihtimali yüzde ${d.precipitation_probability_max[1]??0}.`;
+  else msg=`Patron, ${city?place+" için":"bulunduğun yerde"} hava şu an ${WMO[c.weather_code]||"değişken"}, ${R(c.temperature_2m)} derece, hissedilen ${R(c.apparent_temperature)}. Bugün en yüksek ${R(d.temperature_2m_max[0])}, en düşük ${R(d.temperature_2m_min[0])} derece, yağış ihtimali yüzde ${d.precipitation_probability_max[0]??0}.`;
   if((d.precipitation_probability_max[i]??0)>=50)msg+=" Şemsiyeni almayı unutma.";
   tell(msg)
  }catch(e){tell("Hava durumuna ulaşamadım patron: "+(e.message||e))}
