@@ -1250,9 +1250,45 @@ async function localMail(t,s,app){
   if(u.length)items=u;
   else if(raw.some(x=>/okunmad|okunmam|unread/i.test(x))){tell("Okunmamış mailin yok patron.");return}
   else note="Okunmamış işaretini ekrandan ayıramadım, en son gelenleri söylüyorum. "}
- const lines=items.slice(0,who?3:5).map((x,i)=>(i+1)+". "+x.p.slice(0,4).join(", ").slice(0,200));
- const head=app==="Teams"?"Teams'te en üstteki sohbetler: ":who?who+" ile ilgili en son mailler: ":(unreadQ&&!note?items.length+" okunmamış mail görüyorum patron. ":"Gelen kutunda en üstte bunlar var patron. ");
- const m=note+head+"\n"+lines.join("\n");add(m,"g");say(m.replace(/\n/g,". "))}
+ if(app==="Teams"){const lines=items.slice(0,5).map((x,i)=>(i+1)+". "+x.p.slice(0,3).join(", ").slice(0,200));
+  const m="Teams'te en üstteki sohbetler:\n"+lines.join("\n");add(m,"g");say(m.replace(/\n/g,". "));return}
+ // Göndericileri say, seçtiğini aç
+ const list=items.slice(0,who?5:12);
+ const names=list.map((x,i)=>(i+1)+". "+x.p[0]);
+ const head=who?who+" ile ilgili "+list.length+" mail buldum patron. ":unreadQ&&!note?"Okunmamış "+items.length+" mailin var patron. ":note+"Gelen kutunda en üstteki "+list.length+" mail şunlardan geliyor. ";
+ add(head+"\n"+list.map((x,i)=>(i+1)+". "+x.p.slice(0,3).join(" — ").slice(0,160)).join("\n"),"g");
+ window.__mailPick={list,app};
+ const q=head+"Gönderenler: "+names.join(", ")+". Hangisini açıp okuyayım?";
+ pendInput=pickMail;say(q,autoListen)}
+
+const ORD={"bir":1,"birinci":1,"ilk":1,"iki":2,"ikinci":2,"üç":3,"üçüncü":3,"dört":4,"dördüncü":4,"beş":5,"beşinci":5,"altı":6,"altıncı":6,"yedi":7,"yedinci":7,"sekiz":8,"sekizinci":8,"dokuz":9,"dokuzuncu":9,"on":10,"onuncu":10,"on bir":11,"on birinci":11,"on iki":12,"on ikinci":12};
+const fold=x=>low(x).replace(/[ıİ]/g,"i").replace(/ş/g,"s").replace(/ğ/g,"g").replace(/ü/g,"u").replace(/ö/g,"o").replace(/ç/g,"c");
+async function pickMail(ans){
+ const P=window.__mailPick;if(!P)return;const s=low(ans);
+ if(/^(hiçbiri|yok|vazgeç|gerek yok|istemiyorum|kalsın)/.test(s)){tell("Tamam patron.");return}
+ let idx=-1,m=s.match(/(\d+)/);
+ if(m)idx=+m[1]-1;
+ else if(/sonuncu|en son(un)?cu|son olan/.test(s))idx=P.list.length-1;
+ else{for(const w of Object.keys(ORD).sort((a,b)=>b.length-a.length))if(new RegExp("(^|\\s)"+w+"(\\s|$|ni|yi|yı|si|sı|nci|ncı)").test(s)){idx=ORD[w]-1;break}}
+ if(idx<0){const words=s.split(/\s+/).map(w=>w.replace(/['’](n[ıiuü]n|[ıiuü]n|[ıiuü]|n[ıiuü]|y[ıiuü]|d[ae]n|t[ae]n)?\S*$/,"").replace(/(nınkini|ninkini|nunkunu|nünkünü|ınkini|inkini|unkunu|ünkünü|nın|nin|nun|nün|ni|nı|yi|yı)$/,"")).filter(w=>w.length>2);
+  idx=P.list.findIndex(x=>words.some(w=>fold(x.p[0]).includes(fold(w))));
+  if(idx<0)idx=P.list.findIndex(x=>words.some(w=>fold(x.p.join(" ")).includes(fold(w))))}
+ if(idx<0||idx>=P.list.length){askIn("Hangisi patron? Sırasını ya da gönderenin adını söyle.",pickMail);return}
+ const it=P.list[idx];
+ document.body.classList.add("think");setSt(it.p[0]+" mailini açıyorum…");
+ const key=it.p[0]+"\u0001"+(it.p[1]||"").slice(0,30);
+ const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;A.screenFind(id,P.app==="Teams"?"teams":"outlook","open:"+key);setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
+ document.body.classList.remove("think");setSt("");
+ if(r.st==="notfound"){tell("O maili listede bulamadım patron, yeri değişmiş olabilir.");return}
+ if(r.st!=="ok"){tell("Maili açamadım patron.");return}
+ let body="";try{body=JSON.parse(r.j).body||""}catch(e){}
+ const JUNK=/^(yanıtla|tümünü yanıtla|ilet|reply|reply all|forward|daha fazla|more|geri|back|sil|arşivle|archive|delete|kime|to|bilgi|cc|ATTENTION - This is an external email.*|gönder|okundu olarak işaretle|·|•)$/i;
+ const seen=new Set();
+ const lines=body.split("\n").map(x=>x.trim()).filter(x=>x&&!JUNK.test(x)&&x!==it.p[0]&&!seen.has(x)&&seen.add(x));
+ const text=lines.join(". ").replace(/\.\s*\./g,".");
+ if(!text){tell("Mail açıldı ama içeriğini okuyamadım patron.");return}
+ readLong(it.p[0]+" mailinde, konu: "+(it.p[1]||"")+". ",text)}
+
 
 /* ---------- Hava durumu (Open-Meteo, ücretsiz, anahtarsız) ---------- */
 const WMO={0:"açık",1:"az bulutlu",2:"parçalı bulutlu",3:"kapalı",45:"sisli",48:"kırağılı sisli",51:"hafif çisentili",53:"çisentili",55:"yoğun çisentili",56:"donan çisentili",57:"donan çisentili",61:"hafif yağmurlu",63:"yağmurlu",65:"kuvvetli yağmurlu",66:"donan yağmurlu",67:"donan yağmurlu",71:"hafif kar yağışlı",73:"kar yağışlı",75:"yoğun kar yağışlı",77:"kar taneli",80:"hafif sağanaklı",81:"sağanak yağışlı",82:"şiddetli sağanaklı",85:"kar sağanaklı",86:"yoğun kar sağanaklı",95:"gök gürültülü fırtınalı",96:"dolulu fırtınalı",99:"şiddetli dolulu fırtınalı"};
