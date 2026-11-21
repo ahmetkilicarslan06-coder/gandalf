@@ -1224,23 +1224,34 @@ async function localMail(t,s,app){
   if(hit){readLong(hit.from+", "+trDate(hit.time)+" tarihinde yazmış: ",hit.text);return}}
  if(typeof A.screenRead!=="function"){tell("Patron, bunun için uygulamanın yeni sürümü gerekiyor. Ayarlar'dan güncelle.");return}
  if(!A.waAutoOk()){tell("Patron, "+app+"'u ekrandan okuyabilmem için Ayarlar'daki Erişilebilirlik iznini (WhatsApp'ta otomatik gönder) açman gerekiyor.");return}
- setSt(app+" açılıyor, bakıyorum…");
- const r=await screenRead(app==="Teams"?"teams":"outlook");
+ // "Mehmet Budak'tan gelen mail" → Outlook'ta ara
+ const pm=t.match(/([A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)?)\s*['’]?\s*(?:tan|ten|dan|den)\s+(?:gelen|mail|son|en|bir|herhangi)/i);
+ let who=pm&&!/(outlook|teams|mail|gelen|kutu|e-?posta|bugün|dün|şirket|iş)/i.test(pm[1])?pm[1].trim():"";
+ setSt(app+(who?" içinde "+who+" aranıyor…":" açılıyor, bakıyorum…"));
+ const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
+  if(typeof A.screenFind==="function")A.screenFind(id,app==="Teams"?"teams":"outlook",who);else A.screenRead(id,app==="Teams"?"teams":"outlook");
+  setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
  if(r.st==="noapp"){tell("Telefonda "+app+" uygulamasını bulamadım patron.");return}
  if(r.st!=="ok"){tell(app+" ekranını okuyamadım patron. Bir daha dener misin?");return}
  let raw=[];try{raw=JSON.parse(r.j||"[]")}catch(e){}
- const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla)/i;
- let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(p=>p.trim()).filter(p=>p&&!/^(okunmadı|okunmamış|unread|bayraklı|flagged|seçili değil)$/i.test(p)).filter((p,i,a)=>a.indexOf(p)===i)}))
+ const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla|önerilen|kişiler|en iyi sonuçlar|tümü)$/i;
+ const SKIP=/^(okunmadı|okunmamış|unread|bayraklı|flagged|seçili değil|ek var|has attachments?|önemli|\d+)$/i;
+ let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(q=>q.trim()).filter(q=>q&&!SKIP.test(q)).filter((q,i,a)=>a.indexOf(q)===i)}))
   .filter(x=>x.p.length>=2&&!junk.test(x.p[0]));
+ if(!items.length){
+  const dbg=raw.slice(0,3).join(" ⏐ ").slice(0,300);
+  tell(app+" açıldı ama mail satırlarını ayıramadım patron.");
+  add("(Ekrandan gelen: "+(dbg||"hiçbir şey")+")","g");return}
  const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
  let note="";
- if(unreadQ){const u=items.filter(x=>x.u);if(u.length)items=u;else note="Okunmamış işaretini ekrandan göremedim, en son gelenleri söylüyorum. "}
- const cands=nameCands(t).flatMap(c=>c.vars).filter(v=>v.length>2&&!/^(mail|son|gelen|okunm|outlook|teams|var)/.test(v));
- const byP=items.filter(x=>cands.some(v=>low(x.p.join(" ")).includes(v)));
- if(byP.length)items=byP;
- if(!items.length){tell(app+" ekranında okunacak bir şey göremedim patron.");return}
- const lines=items.slice(0,5).map((x,i)=>(i+1)+". "+x.p.slice(0,4).join(", ").slice(0,170));
- const head=app==="Teams"?"Teams'te en üstteki sohbetler: ":(unreadQ&&!note?items.length+" okunmamış mail görüyorum patron. ":"Gelen kutunda en üstte bunlar var patron. ");
+ if(who){const w=low(who).split(/\s+/);const byP=items.filter(x=>w.some(v=>low(x.p.join(" ")).includes(v)));
+  if(byP.length)items=byP;else{tell("Patron, "+app+"'ta "+who+" diye arattım ama sonuç göremedim.");return}}
+ if(unreadQ){const u=items.filter(x=>x.u);
+  if(u.length)items=u;
+  else if(raw.some(x=>/okunmad|okunmam|unread/i.test(x))){tell("Okunmamış mailin yok patron.");return}
+  else note="Okunmamış işaretini ekrandan ayıramadım, en son gelenleri söylüyorum. "}
+ const lines=items.slice(0,who?3:5).map((x,i)=>(i+1)+". "+x.p.slice(0,4).join(", ").slice(0,200));
+ const head=app==="Teams"?"Teams'te en üstteki sohbetler: ":who?who+" ile ilgili en son mailler: ":(unreadQ&&!note?items.length+" okunmamış mail görüyorum patron. ":"Gelen kutunda en üstte bunlar var patron. ");
  const m=note+head+"\n"+lines.join("\n");add(m,"g");say(m.replace(/\n/g,". "))}
 
 /* ---------- Hava durumu (Open-Meteo, ücretsiz, anahtarsız) ---------- */
