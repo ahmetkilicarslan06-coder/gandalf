@@ -1154,7 +1154,7 @@ if(typeof A.tv==="function"){
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
   const tvWord=/(televizyon|\btv\b|tivi|televizyo)/.test(s);
   const inCtx=window.__tvLast&&Date.now()-window.__tvLast.at<180000&&s.split(/\s+/).length<=7&&!/(hatırlat|mail|teams|whatsapp|mesaj|\bara\b|hava|nedir|kimdir)/.test(s);
-  if(tvWord||inCtx||(/^(sesi|sesini)\s/.test(s)&&/(kıs|aç|artır|azalt)/.test(s)&&!/(telefon|müzik)/.test(s))){
+  if(tvWord||inCtx){
    let c=tvCmd(s);
    if(!tvWord&&inCtx){
     if(/(aç|artır|arttır|yükselt)/.test(s)&&!/kanal/.test(s))c=["volup","sesi açtım"];
@@ -1369,6 +1369,74 @@ if(typeof A.setWakeName==="function"){
   A.setWakeName(v);applyName(v);
   tell("Tamam patron, artık adım "+v+". Seni daha iyi duymam için Sesimi öğret tuşuna basıp aralarında birer saniye bekleyerek 3 kez "+v+" de.")};
  $("wrsave").onclick=()=>{const v=$("wreply").value.trim()||"Sizi dinliyorum patron.";store.set("g_wreply",v);tell("Tamam, seslenince '"+v+"' diyeceğim.")};
+}
+
+
+/* ---------- Telefon kontrolü: kamera, fener, ses, parlaklık, kontrol merkezi ---------- */
+if(typeof A.tile==="function"){
+ const tw={};let tn=0;
+ window.nativeTile=(id,r)=>{const f=tw[id];delete tw[id];if(f)f(r)};
+ const tileP=(key,want)=>new Promise(ok=>{const id="t"+(++tn);tw[id]=ok;A.tile(id,key,want);setTimeout(()=>{if(tw[id]){delete tw[id];ok("timeout")}},15000)});
+ const NAMES={wifi:"Wi-Fi",bt:"Bluetooth",data:"Mobil veri",air:"Uçak modu",loc:"Konum",nfc:"NFC",dark:"Karanlık mod",rotate:"Otomatik döndürme",saver:"Pil tasarrufu",hotspot:"Erişim noktası",cast:"Ekran yansıtma",srec:"Ekran kaydı"};
+ const TK=[["wifi",/(wi-?fi|vayfay|vay fay|kablosuz ağ)/],["bt",/(bluetooth|blutut|bluetut|blu tut)/],["data",/(mobil veri|mobil interneti?|hücresel)/],["air",/(uçak modu|uçuş modu)/],["loc",/(konum|gps|lokasyon)/],["nfc",/(\bnfc\b|en ef si)/],["dark",/(karanlık mod|koyu mod|gece modu|karanlık tema|koyu tema)/],["rotate",/(döndürme|ekranı döndür|otomatik döndür)/],["saver",/(pil tasarruf|güç tasarruf|batarya tasarruf|pil koruma)/],["hotspot",/(hotspot|erişim noktası|bağlantı paylaşım|internet paylaşım)/],["cast",/(yansıt|ekran paylaş)/],["srec",/(ekran kaydı|ekranı kaydet)/]];
+ const OFF=/(kapat|durdur|devre dışı|pasif|kes\b)/,ON=/(\baç|başlat|etkinleştir|aktif et|devreye al)/;
+ const NW={"bir":1,"iki":2,"üç":3,"dört":4,"beş":5,"altı":6,"yedi":7,"sekiz":8,"dokuz":9,"on":10,"on beş":15,"yirmi":20,"otuz":30};
+ const numIn=(s,unit)=>{let m=s.match(new RegExp("(\\d+)\\s*"+unit));if(m)return +m[1];
+  for(const w of Object.keys(NW).sort((a,b)=>b.length-a.length))if(new RegExp("(^|\\s)"+w+"\\s+"+unit).test(s))return NW[w];return 0};
+ const needAcc="Patron, bunun için Ayarlar'daki Erişilebilirlik iznini (Gandalf WhatsApp gönderici) açman gerekiyor.";
+ const _hd=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(/(televizyon|\btv\b|tivi)/.test(s)||pendYN||pendInput)return _hd(t,quick);
+  // Kamera
+  if(/(kamera|fotoğraf|foto\b|selfie|selfi|video)/.test(s)&&/(\baç|çek|kaydet|kayda|başlat|\bal\b)/.test(s)&&!/(gönder|whatsapp|mesaj|youtube|netflix|izle)/.test(s)){
+   add(t,"u");const d=numIn(s,"saniye");
+   const cmd=/(video|kayd|kayıt)/.test(s)?"video":(/(çek|fotoğraf|foto\b|selfi)/.test(s)&&!/^kamera(yı)? aç/.test(s))?"photo":"open";
+   const m=cmd==="photo"?(d?d+" saniye sonra çekiyorum patron.":"Çekiyorum patron."):cmd==="video"?"Video kaydını başlatıyorum patron. Durdurmak için durdur de.":"Kamerayı açıyorum patron. Çek, on saniye sonra çek, başlat, durdur, çevir ya da kapat diyebilirsin.";
+   add(m,"g");say(m,()=>A.openCamera(cmd,d||0));return}
+  // El feneri
+  if(/(fener|flaş|el lambası)/.test(s)&&!/fotoğraf/.test(s)){add(t,"u");const on=!OFF.test(s);const r=A.flash(on);
+   tell(r==="ok"?(on?"Feneri açtım patron.":"Feneri kapattım patron."):"Feneri açamadım patron.");return}
+  // Ekran görüntüsü / kilit
+  if(/(ekran görüntüsü|ekran resmi|screenshot|\bss al)/.test(s)){add(t,"u");if(A.screenshot()==="noacc")tell(needAcc);else{add("Ekran görüntüsü alınıyor.","g")}return}
+  if(/(ekranı kilitle|telefonu kilitle|kilitle telefonu|ekranı kapat)/.test(s)){add(t,"u");if(A.lockScreen()==="noacc")tell(needAcc);else say("Kilitliyorum patron.");return}
+  // Müzik
+  if(/(müzi|şarkı|parça|medya)/.test(s)&&/(durdur|duraklat|başlat|oynat|devam|sonraki|geç|atla|önceki|başa)/.test(s)){add(t,"u");
+   const c=/(sonraki|geç|atla)/.test(s)?"next":/(önceki|başa)/.test(s)?"prev":/(durdur|duraklat)/.test(s)?"pause":"play";A.media(c);tell("Tamam patron.");return}
+  // Rahatsız etmeyin / sessiz / titreşim
+  if(/(rahatsız etme)/.test(s)||/(sessize al|sessiz mod|telefonu sessiz|titreşim|zil sesini aç|sesli mod|normal mod)/.test(s)){add(t,"u");
+   const mode=/rahatsız etme/.test(s)?(OFF.test(s)?"dnd_off":"dnd_on"):/titreşim/.test(s)?(OFF.test(s)?"normal":"vibrate"):/(zil sesini aç|sesli mod|normal mod)/.test(s)||OFF.test(s)?"normal":"silent";
+   const r=A.ringer(mode);
+   if(r==="perm")tell("Patron, bunun için Rahatsız Etmeyin erişimi lazım. Açılan ekranda Gandalf'a izin ver, sonra tekrar söyle.");
+   else tell(r==="ok"?{normal:"Telefon sesli modda patron.",vibrate:"Titreşime aldım patron.",silent:"Sessize aldım patron.",dnd_on:"Rahatsız etmeyin açık patron.",dnd_off:"Rahatsız etmeyin kapalı patron."}[mode]:"Yapamadım patron.");return}
+  // Parlaklık
+  if(/(parlaklı|ekran ışığı|ekranı karart|ekranı aydınlat)/.test(s)){add(t,"u");
+   const pm=s.match(/(?:yüzde|%)\s*(\d+)/)||s.match(/(\d+)/);let pct=pm?+pm[1]:-1,rel=0;const auto=/otomatik/.test(s);
+   if(/(tam|en yüksek|full|maksimum|sonuna)/.test(s))pct=100;else if(/(en düşük|minimum|en az)/.test(s))pct=5;
+   else if(pct<0)rel=/(azalt|kıs|düşür|karart)/.test(s)?-20:20;
+   const r=A.brightness(pct,rel,auto);
+   if(r==="perm")tell("Patron, parlaklığı değiştirebilmem için açılan ekranda Gandalf'a 'Sistem ayarlarını değiştirme' izni ver, sonra tekrar söyle.");
+   else if(r==="auto")tell("Otomatik parlaklık açık patron.");else if(r.startsWith("ok"))tell("Parlaklık yüzde "+r.split(":")[1]+" patron.");else tell("Parlaklığı değiştiremedim patron.");return}
+  // Telefonun sesi
+  const tvCtx=window.__tvLast&&Date.now()-window.__tvLast.at<180000;
+  if(/\bses/.test(s)&&(/(telefon|medya|müzik|zil|alarm)/.test(s)||(/^(sesi|sesini)\b/.test(s)&&!tvCtx))&&/(aç|artır|arttır|yükselt|kıs|azalt|düşür|kapat|sustur|sonuna|tam|yüzde)/.test(s)){add(t,"u");
+   const st=/zil/.test(s)?"ring":/alarm/.test(s)?"alarm":"media";
+   const pm=s.match(/(?:yüzde|%)\s*(\d+)/);const n=numIn(s,"(kere|kez|kademe|tık|defa)")||(/(biraz)/.test(s)?2:/(çok|iyice)/.test(s)?5:2);
+   const dir=pm?"set":/(sonuna|tam|en yüksek|maksimum|full)/.test(s)?"max":/(kapat|sustur)/.test(s)?"mute":/(kıs|azalt|düşür)/.test(s)?"down":"up";
+   const r=A.volume(st,dir,pm?+pm[1]:n);
+   if(r==="perm")tell("Patron, sessiz moddayken sesi değiştirmek için Rahatsız Etmeyin erişimi lazım.");
+   else tell(r.startsWith("ok")?"Tamam patron, "+(st==="ring"?"zil":"medya")+" sesi yüzde "+r.split(":")[1]+".":"Sesi değiştiremedim patron.");return}
+  // Kontrol merkezi düğmeleri
+  for(const [k,re] of TK)if(re.test(s)&&(ON.test(s)||OFF.test(s)||/değiştir/.test(s))&&!/(gönder|paylaş\b|\bat\b|whatsapp)/.test(s)){
+   add(t,"u");if(!A.waAutoOk()){tell(needAcc);return}
+   const want=OFF.test(s)?"off":ON.test(s)?"on":"toggle";
+   setSt(NAMES[k]+" ayarlanıyor…");
+   const r=await tileP(k,want);setSt("");
+   if(r==="on")tell(NAMES[k]+" açık patron.");else if(r==="off")tell(NAMES[k]+" kapalı patron.");
+   else if(r==="done")tell("Tamam patron, "+NAMES[k]+" düğmesine bastım.");
+   else if(r==="notfound")tell("Kontrol merkezinde "+NAMES[k]+" düğmesini bulamadım patron.");
+   else if(r==="noacc")tell(needAcc);else tell("Olmadı patron, bir daha dener misin?");
+   return}
+  return _hd(t,quick)};
 }
 
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
