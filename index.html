@@ -439,7 +439,7 @@ async function phoneRoute(t){const s=trl(t);
  if(ppend){const p=ppend;ppend=null;if(/^(iptal|vazgeç|boşver|hayır|yok)/.test(s)){reply("Tamam patron, vazgeçtim.");return true}
   doSend(p.ch,p.c,p.num,t.trim());return true}
  const isWa=/(whatsapp|whatsap|watsap|vatsap|watsapp|\bwp\b)/.test(s),isLoc=/konum/.test(s),isSms=/(mesaj|sms)/.test(s)&&/(at|gönder|yolla|yaz)/.test(s);
- const isCall=/\b(ara|arar|arayın|arasana|aramak|arayalım)\b/.test(s)&&!/(internet|google|youtube|netflix|araştır)/.test(s);
+ const isCall=/\b(ara|arar|arayın|arasana|aramak|arayalım)\b/.test(s)&&!/(internet|google|youtube|netflix|araştır|instagram|tiktok|facebook|twitter|spotify|telegram|linkedin|trendyol|hepsiburada|haritalar|maps|uygulama|\bda\b|\bde\b|içinde)/.test(s);
  if(isLoc&&/(nerede|neresi|göster|ne\b|neredeyim)/.test(s)&&!/(gönder|paylaş|at|yolla)/.test(s)){
   try{const l=await getLoc();reply("Konumun hazır patron.");actBtn("📍 Haritada aç",l)}catch(e){reply(e.message)}return true}
  const ct=findContact(t),num=ct?ct.c.tel:phoneNum(t);
@@ -1491,6 +1491,36 @@ if(typeof A.waLocation==="function"){
      },()=>tell("Tamam, göndermedim."));return}}
   }
   return _hw2(t,quick)};
+}
+
+
+/* ---------- Uygulama içinde arama + aramadan önce onay ---------- */
+{const _dsC=doSend;
+ doSend=function(ch,c,num,msg){
+  if(ch==="call"){askYN("Patron, "+(c?c.ad:num)+" kişisini arayayım mı?",()=>_dsC(ch,c,num,msg),()=>tell("Tamam, aramadım."));return}
+  return _dsC(ch,c,num,msg)};}
+if(typeof A.appSearch==="function"){
+ const APPS=[["Instagram",/(instagram|insta\b|ınstagram)/],["YouTube",/(youtube|yutup|yutub)/],["TikTok",/(tiktok|tik tok)/],["Facebook",/(facebook|feysbuk)/],["X",/(twitter|\bx\b uygulama)/],["Spotify",/(spotify|spotifay)/],["Telegram",/telegram/],["LinkedIn",/(linkedin|linkedın)/],["Trendyol",/trendyol/],["Hepsiburada",/hepsiburada/],["Haritalar",/(google haritalar|haritalar|google maps|\bmaps\b)/],["Netflix",/netflix/],["Pinterest",/pinterest/]];
+ const aw={};let an=0;const prevT=window.nativeTile;
+ window.nativeTile=(id,r)=>{if(aw[id]){const f=aw[id];delete aw[id];f(r)}else if(prevT)prevT(id,r)};
+ const _ha=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput)return _ha(t,quick);
+  const ap=APPS.find(([n,re])=>re.test(s));
+  if(ap&&/(bul|ara\b|arat|göster|aç|izle|dinle|çal)/.test(s)){
+   // aranacak şeyi çıkar
+   const STOPQ=/^(uygulamasını|uygulamasında|uygulamasındaki|uygulamayı|uygulama|uygulamada|üzerinden|içinde|içinden|ve|sonra|bir|ile|lütfen|patron|gandalf|aç|açar|mısın|misin|açsana|bul|bulur|musun|ara|arat|aratır|göster|izle|izlet|dinle|dinlet|çal|çalsana|oynat|telefon|telefondaki|telefonumdaki|şunu|şu|bana)$/i;
+   const q=t.split(/\s+/).filter(w=>w&&!ap[1].test(low(w))&&!STOPQ.test(low(w).replace(/[?.!,]/g,""))).map(w=>w.replace(/['’].*$/,"").replace(/[?.!,]/g,"")).filter(Boolean).join(" ");
+   add(t,"u");
+   if(!q){const r=A.openApp(ap[0]);tell(r?"Açıyorum patron: "+r+".":ap[0]+" uygulamasını bulamadım patron.");return}
+   if(!A.waAutoOk()){tell("Patron, uygulamanın içinde arama yapabilmem için Ayarlar'daki Erişilebilirlik iznini açman gerekiyor.");return}
+   say(ap[0]+"'da "+q+" arıyorum patron.");
+   const r=await new Promise(ok=>{const id="a"+(++an);aw[id]=ok;A.appSearch(id,ap[0],q);setTimeout(()=>{if(aw[id]){delete aw[id];ok("timeout")}},30000)});
+   if(r==="noapp")tell("Telefonda "+ap[0]+" uygulamasını bulamadım patron.");
+   else if(r==="noacc")tell("Patron, bunun için Erişilebilirlik iznini açman gerekiyor.");
+   else if(r!=="ok")tell(ap[0]+" içinde arama kutusunu bulamadım patron. Sesli kumandayı açıp adım adım yönlendirebilirsin.");
+   return}
+  return _ha(t,quick)};
 }
 
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
