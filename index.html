@@ -1159,6 +1159,34 @@ if(typeof A.tv==="function"){
    tell(r?"Açıyorum patron: "+r+".":"Patron, "+m[1]+" adında bir uygulama bulamadım.");return}
   return _ht(t,quick)};
 }
+
+/* ---------- Uygulama içi güncelleme ---------- */
+if(typeof A.updCheck==="function"){
+ const ud=document.createElement("div");
+ ud.innerHTML=`<div class="sub nh">Uygulama sürümü: <b id="uver"></b></div>
+ <div class="row"><button id="ubtn">🔄 Güncellemeleri denetle</button></div><div class="sub" id="ust"></div>`;
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(ud,an);
+ $("uver").textContent=A.appVersion();
+ let updManual=false;
+ const updCheck=manual=>{updManual=manual;if(manual)$("ust").textContent="Kontrol ediyorum…";A.updCheck()};
+ window.nativeUpd=(st,v)=>{
+  if(st==="info"){let j={};try{j=JSON.parse(v)}catch(e){}
+   if(j.err){if(updManual){$("ust").textContent="Kontrol edilemedi: "+j.err;tell("Güncellemeyi kontrol edemedim patron, internet bağlantısına bak.")}return}
+   if(j.has){$("ust").textContent="Yeni sürüm var: "+j.newName+" (sende "+j.curName+")";
+    askYN("Patron, Gandalf'ın yeni sürümü var: "+j.newName+". Güncelleyeyim mi?",()=>{tell("Tamam, indiriyorum patron.");A.updInstall()},()=>tell("Tamam, sonra güncelleriz."))}
+   else{$("ust").textContent="Sürüm güncel ("+j.curName+")";if(updManual)tell("Sürüm güncel patron. Sende en son sürüm var: "+j.curName+".")}}
+  else if(st==="prog"){$("ust").textContent="İndiriliyor… %"+v}
+  else if(st==="perm"){$("ust").textContent="Önce izin ver: açılan ekranda 'Bu kaynaktan izin ver'i aç, sonra tekrar Güncelle'ye bas.";tell("Patron, güncellemeyi kurabilmem için açılan ekranda izin ver. Sonra tekrar güncelle de.")}
+  else if(st==="ready"){$("ust").textContent="İndirildi. Açılan ekranda Güncelle'ye bas.";tell("İndirdim patron. Açılan ekranda Güncelle'ye bas.")}
+  else if(st==="fail"){$("ust").textContent="İndirilemedi: "+v;tell("Güncellemeyi indiremedim patron: "+v)}};
+ $("ubtn").onclick=()=>updCheck(true);
+ // Günde bir kez sessizce kontrol et
+ const last=+store.get("g_updchk",0);if(Date.now()-last>20*3600e3){store.set("g_updchk",Date.now());setTimeout(()=>updCheck(false),8000)}
+ const _hu=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(/(güncelleme|güncelle|yeni sürüm|sürüm güncel)/.test(s)&&!/(hatırlat|mail|teams|whatsapp)/.test(s)){add(t,"u");updCheck(true);return}
+  return _hu(t,quick)};
+}
 })();
 
 </script>
