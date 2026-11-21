@@ -1439,6 +1439,60 @@ if(typeof A.tile==="function"){
   return _hd(t,quick)};
 }
 
+
+/* ---------- WhatsApp: konum, fotoğraf/video, kişi kartı + sesli kumanda ---------- */
+if(typeof A.waLocation==="function"){
+ const ww={};let wn=0;const prevTile=window.nativeTile;
+ window.nativeTile=(id,r)=>{if(ww[id]){const f=ww[id];delete ww[id];f(r)}else if(prevTile)prevTile(id,r)};
+ const waLoc=num=>new Promise(ok=>{const id="w"+(++wn);ww[id]=ok;A.waLocation(id,num);setTimeout(()=>{if(ww[id]){delete ww[id];ok("timeout")}},30000)});
+ const NEEDACC="Patron, bunun için Ayarlar'daki Erişilebilirlik iznini (Gandalf WhatsApp gönderici) açman gerekiyor.";
+ const NWD={"bir":1,"iki":2,"üç":3,"dört":4,"beş":5,"on":10,"on beş":15,"yirmi":20,"otuz":30};
+ const sec=s=>{const m=s.match(/(\d+)\s*saniye/);if(m)return +m[1];for(const w of Object.keys(NWD).sort((a,b)=>b.length-a.length))if(new RegExp("(^|\\s)"+w+"\\s+saniye").test(s))return NWD[w];return 0};
+ const _hw2=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput)return _hw2(t,quick);
+  // Sesli kumanda
+  if(/(sesli kumanda|ekran kumanda|ekranı sesle yönet|ekranı sesle kullan|tıklama modu)/.test(s)){add(t,"u");
+   if(/(kapat|durdur|bitir)/.test(s)){A.screenMode(false);tell("Sesli kumanda kapalı patron.");return}
+   if(!A.waAutoOk()){tell(NEEDACC);return}
+   const m="Sesli kumanda açık patron. Hangi uygulamadaysan ekranda yazan düğmenin adını söyle: konuma bas, gönder, geri, ana ekran, aşağı kaydır, yaz merhaba gibi. Bitince kumandayı kapat de.";
+   add(m,"g");say(m,()=>A.screenMode(true));return}
+  const isSend=/(gönder|yolla|\bat\b|atsana|paylaş|ilet)/.test(s)&&!/(sms|mesajla|kısa mesaj|mail|teams|e-?posta)/.test(s);
+  if(isSend){
+   // Rehberden kişi kartı: "Meleğim'e Ahmet'in numarasını gönder"
+   const km=t.match(/(?:([A-Za-zÇĞİÖŞÜçğıöşü'’]+)\s+)?([A-Za-zÇĞİÖŞÜçğıöşü]+)\s*['’]?\s*(?:n[ıiuü]n|[ıiuü]n)\s+(?:numarasını|numarası|telefonunu|telefon numarasını|kişi kartını|kartını|rehber kaydını)/i);
+   if(km){add(t,"u");
+    const prev=km[1]||"",dat=/(['’]|^)\S*?(y?a|y?e|na|ne)$/i.test(prev)||/['’]/.test(prev);
+    let sub=null,subTxt=km[2];
+    if(prev&&!dat){sub=findContact(prev+" "+km[2]+" whatsapp");if(sub)subTxt=prev+" "+km[2]}
+    if(!sub)sub=findContact(km[2]+" whatsapp");
+    const rest=t.replace(new RegExp(subTxt.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\s*['’]?\\s*(?:n[ıiuü]n|[ıiuü]n)","i")," ");
+    const to=findContact(rest+" whatsapp");
+    km[1]=subTxt;
+    if(!to){tell("Kime göndereceğimi bulamadım patron.");return}
+    if(!sub){tell("Rehberde "+km[1]+" kişisini bulamadım patron.");return}
+    askYN("Patron, "+to.c.ad+" kişisine "+sub.c.ad+" kişi kartını WhatsApp'tan göndereyim mi?",()=>{tell("Gönderiyorum patron.");setTimeout(()=>A.waContact(waNum(to.c.tel),sub.c.ad,sub.c.tel),1500)},()=>tell("Tamam, göndermedim."));return}
+   // Fotoğraf / video çekip gönder
+   if(/(fotoğraf|resim|foto\b|selfie|selfi|video)/.test(s)&&/(çek|kaydet|kayıt)/.test(s)){const to=findContact(t+" whatsapp");
+    if(to){add(t,"u");const vid=/video/.test(s),d=sec(s);
+     const m=vid?"Kamerayı açıyorum patron. Başlat de, bitince durdur de; videoyu "+to.c.ad+" kişisine göndereceğim."
+       :d?d+" saniye sonra çekip "+to.c.ad+" kişisine göndereceğim patron.":"Kamerayı açıyorum patron. Hazır olunca çek de; fotoğrafı "+to.c.ad+" kişisine göndereceğim.";
+     add(m,"g");say(m,()=>A.openCameraSend(waNum(to.c.tel),vid?"open":(d?"photo":"open"),d||0));return}}
+   // Konum (WhatsApp'ın kendi konum ekranından)
+   if(/konum/.test(s)&&!/(sms|mesajla)/.test(s)){const to=findContact(t+" whatsapp");
+    if(to){add(t,"u");
+     if(!A.waAutoOk()){tell(NEEDACC);return}
+     askYN("Patron, "+to.c.ad+" kişisine WhatsApp'tan konumunu göndereyim mi?",async()=>{
+      tell("Gönderiyorum patron.");
+      const r=await waLoc(waNum(to.c.tel));
+      if(r==="ok")tell("Konum gönderildi patron.");
+      else{tell("WhatsApp'ın konum ekranında takıldım patron, onun yerine harita bağlantısını gönderiyorum.");
+       try{const l=await getLoc();A.whatsapp(waNum(to.c.tel),"Konumum: "+l)}catch(e){tell(e.message)}}
+     },()=>tell("Tamam, göndermedim."));return}}
+  }
+  return _hw2(t,quick)};
+}
+
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
  const busy=lis||document.body.classList.contains("talk")||document.body.classList.contains("think")||wakeWait||pendYN||pendInput||(typeof convo!=="undefined"&&convo);
