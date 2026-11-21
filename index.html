@@ -216,6 +216,16 @@ async function groqAsk(){
    last=j.error?.message||("Groq hatası "+r.status);if(r.status===401)break}
   catch(e){last=e.message}}
  throw new Error("Groq da olmadı: "+last)}
+async function pollAsk(){
+ const sys=SYS.replace(/Altın, döviz.*?söyle\. /,"")+" Bugünün tarihi: "+new Date().toLocaleDateString("tr-TR")+". Güncel rakam bilmiyorsan uydurma, bilmediğini söyle.";
+ const msgs=[{role:"system",content:sys},...hist.slice(-6).map(m=>({role:m.role==="model"?"assistant":"user",content:(m.parts||[]).map(p=>p.text||"").join("")}))];
+ const clean=t=>String(t||"").replace(/[*#]+/g,"").trim();
+ try{const r=await fetch("https://text.pollinations.ai/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"openai",messages:msgs,private:true})});
+  if(r.ok){const t=await r.text();let x=t;try{const j=JSON.parse(t);x=j.choices?.[0]?.message?.content||j.content||t}catch(e){}if(clean(x))return clean(x)}}catch(e){}
+ const last=msgs[msgs.length-1].content;
+ const r=await fetch("https://text.pollinations.ai/"+encodeURIComponent(last)+"?model=openai&private=true&system="+encodeURIComponent(sys));
+ if(!r.ok)throw new Error("Ücretsiz yedek servis şu an cevap vermedi ("+r.status+").");
+ const t=clean(await r.text());if(!t)throw new Error("Ücretsiz yedek servis boş cevap verdi.");return t}
 const API="https://generativelanguage.googleapis.com/v1beta/";
 let modelList=null;
 async function getModels(){
@@ -303,7 +313,7 @@ localAsk.__warm=async function(){
 setTimeout(warm,1500);
 async function ask(q,forceLong){
  DETAIL=forceLong===true?true:forceLong===false?false:(LONGRE.test(q)?true:SHORTRE.test(q)?false:lenPref==="long");pendLen=null;lastQ=q;$("more").hidden=true;
- if(mode==="gemini"&&!key&&!gkey){add("Patron, önce Ayarlar bölümüne Gemini ya da Groq API anahtarını yapıştır (ikisi de ücretsiz).","g");$("set").open=true;return}
+ 
  const w=add("Araştırıyorum…","g");document.body.classList.add("think");
  const prog=t=>{w.textContent=t;$("cap").textContent=t};
  hist.push({role:"user",parts:[{text:q}]});hist=hist.slice(-8);while(hist[0]&&hist[0].role==="model")hist.shift();
@@ -317,7 +327,7 @@ async function ask(q,forceLong){
    prog(gFirst?"İnternetten araştırıyorum…":"Araştırıyorum…");
    for(let i=0;i<ks.length&&!txt;i++){
     key=ks[(kIdx+i)%ks.length];gerr=null;modelList=null;
-    const more=i<ks.length-1||!!gkey;
+    const more=true;
     try{
      const all=await getModels(),list=DETAIL?all:[...all].sort((x,y)=>/lite/.test(y)-/lite/.test(x));
      try{const o=await runOnce(list,{prog,noWait:more});({txt,src}=readJ(o.j))}catch(e){if(e.status===429||/API key|API_KEY|permission/i.test(e.message))throw e}
@@ -328,6 +338,10 @@ async function ask(q,forceLong){
    key=allKeys()[0]||"";modelList=null}
    if(!txt&&gkey){prog(ks.length?"Gemini kotası dolu, yedek yapay zekâya (Groq) geçiyorum…":"Araştırıyorum…");
     try{const g=await groqAsk();txt=g.txt;gerr=null;if(!g.web)note=" (yedek modelle cevapladım, güncel bilgi olmayabilir)"}catch(e){gerr=gerr||e;if(gerr!==e)gerr=new Error(gerr.message+" | "+e.message)}}
+   if(!txt){prog("Ücretsiz yedek servise soruyorum…");
+    try{const live=await liveData(q).catch(()=>"");if(live)hist[hist.length-1]={role:"user",parts:[{text:q+"\n\nGüncel veri: "+live}]};
+     txt=await pollAsk();gerr=null;if(!live&&FRESH.test(q))note=" (ücretsiz yedekle cevapladım, en güncel bilgi olmayabilir)"}
+    catch(e){gerr=gerr||e}}
   };
   if(gFirst){await tryGemini();if(!txt){await tryLocal();if(txt)note=" (Gemini olmadı, yerel modelle cevapladım; güncel bilgi olmayabilir)"}}
   else{
@@ -336,7 +350,7 @@ async function ask(q,forceLong){
   }
   if(!txt){
    if(lerr&&gerr)throw new Error(lerr.message+" | Gemini de olmadı: "+gerr.message);
-   if(gerr&&gerr.status===429&&!gkey)gerr=new Error(gerr.message+" Ayarlar'a ücretsiz Groq anahtarı eklersen kota dolunca otomatik ona geçerim.");throw lerr||gerr||new Error("Cevap alamadım.");
+   throw lerr||gerr||new Error("Cevap alamadım.");
   }
   txt+=note;
   if(!txt)throw new Error("Cevap alamadım.");
