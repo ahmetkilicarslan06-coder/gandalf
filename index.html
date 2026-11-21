@@ -1228,6 +1228,11 @@ async function localMail(t,s,app){
  // "Mehmet Budak'tan gelen mail" → Outlook'ta ara
  const pm=t.match(/([A-Za-zÇĞİÖŞÜçğıöşü]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]+)?)\s*['’]?\s*(?:tan|ten|dan|den)\s+(?:gelen|mail|son|en|bir|herhangi)/i);
  let who=pm&&!/(outlook|teams|mail|gelen|kutu|e-?posta|bugün|dün|şirket|iş)/i.test(pm[1])?pm[1].trim():"";
+ // Konuya göre: "Kızılay içecek iade maili kimden gelmişti", "fatura konulu maili oku"
+ if(!who){const tm=t.match(/^(.+?)\s+(?:konulu\s+|hakkındaki\s+|ile ilgili\s+)?(?:maili|mailini|maile|maillerini|e-?postası|e-?postasını)\b/i);
+  if(tm){let k=tm[1].replace(/^(en son|son|şu|bu|bir|o|outlook'?ta|outlookta|gelen|okunmamış|yeni)\s+/ig,"").trim();
+   if(k&&!/^(okunmamış|gelen|yeni|son|en son|tüm|bütün|bugünkü|dünkü)$/i.test(k)&&k.length>=3)who=k}}
+ const askFrom=/(kimden|kim gönder|kim atmış|kim yollamış)/.test(s);
  setSt(app+(who?" içinde "+who+" aranıyor…":" açılıyor, bakıyorum…"));
  const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
   if(typeof A.screenFind==="function")A.screenFind(id,app==="Teams"?"teams":"outlook",who);else A.screenRead(id,app==="Teams"?"teams":"outlook");
@@ -1246,12 +1251,15 @@ async function localMail(t,s,app){
   add("(Ekrandan gelen: "+(dbg||"hiçbir şey")+")","g");return}
  const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
  let note="";
- if(who){const w=low(who).split(/\s+/);const byP=items.filter(x=>w.some(v=>low(x.p.join(" ")).includes(v)));
+ if(who){const w=low(who).split(/\s+/).filter(v=>v.length>2);const byP=items.filter(x=>w.some(v=>low(x.p.join(" ")).includes(v)));
   if(byP.length)items=byP;else{tell("Patron, "+app+"'ta "+who+" diye arattım ama sonuç göremedim.");return}}
  if(unreadQ){const u=items.filter(x=>x.u);
   if(u.length)items=u;
   else if(raw.some(x=>/okunmad|okunmam|unread/i.test(x))){tell("Okunmamış mailin yok patron.");return}
   else note="Okunmamış işaretini ekrandan ayıramadım, en son gelenleri söylüyorum. "}
+ if(askFrom&&who&&items.length){const x=items[0];window.__mailPick={list:[x],app};
+  const m=who+" maili "+x.p[0]+" kişisinden gelmiş patron"+(x.p.find(q=>/\d{1,2}[:.]\d{2}|dün|pzt|sal|çar|per|cum|cmt|paz/i.test(q))?", "+x.p.find(q=>/\d{1,2}[:.]\d{2}|dün|pzt|sal|çar|per|cum|cmt|paz/i.test(q)):"")+". Açıp okuyayım mı?";
+  askYN(m,()=>pickMail("1"),()=>tell("Tamam patron."));return}
  if(app==="Teams"){const lines=items.slice(0,5).map((x,i)=>(i+1)+". "+x.p.slice(0,3).join(", ").slice(0,200));
   const m="Teams'te en üstteki sohbetler:\n"+lines.join("\n");add(m,"g");say(m.replace(/\n/g,". "));return}
  // Göndericileri say, seçtiğini aç
