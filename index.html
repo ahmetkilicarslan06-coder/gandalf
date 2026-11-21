@@ -327,6 +327,11 @@ async function ask(q,forceLong){
   const tryLocal=async()=>{prog("Yerel model düşünüyor… (ilk cevap yavaş olabilir)");try{txt=await localAsk(t=>{w.textContent=t;$("cap").textContent=t})}catch(e){lerr=e}};
   const tryGemini=async()=>{
    if(window.localOnly&&window.localOnly()&&window.localBrain){prog("Telefondaki model düşünüyor…");try{txt=await window.localBrain()||"";gerr=null;if(!txt)gerr=new Error("Telefondaki model henüz indirilmemiş. Ayarlar'dan indir.")}catch(e){gerr=e}return}
+   if(!txt&&window.googleBrain&&store.get("g_google",true)){prog("Google'a soruyorum…");
+    try{const g=await window.googleBrain(q);
+     if(g.st==="ok"&&g.t){txt=g.t.replace(/[*#]+/g,"").replace(/\n+/g,". ").replace(/\.\s*\./g,".");src=[{uri:"https://www.google.com/search?q="+encodeURIComponent(q),title:"Google AI Bakışı"}]}
+     else if(g.st==="captcha"&&!window.__gWarned){window.__gWarned=1;add("Google bir doğrulama istiyor patron. Ayarlar'da 'Google'ı bir kez aç'a basıp doğrularsan yine Google'a sorarım. Şimdilik diğer servislere geçiyorum.","g")}}catch(e){}}
+   if(txt)return;
    const ks=allKeys();
    if(ks.length){
    prog(gFirst?"İnternetten araştırıyorum…":"Araştırıyorum…");
@@ -1089,6 +1094,20 @@ function voiceRoute(t,s){
 window.nativeRecDone=(ok,msg)=>{setSt("");if(!ok){tell(msg);return}
  askYN("Kaydı "+recAd+" kişisine WhatsApp'tan göndereyim mi patron?",()=>A.recSend(recNum),()=>tell("Tamam, göndermedim."))};
 window.nativeVoiceSent=(ok,err)=>{if(!ok)tell("Sesli mesaj gönderilemedi: "+err);else if(!A.waAutoOk())tell("WhatsApp'ta sesli mesaj hazır, gönder tuşuna bas patron.")};
+}
+
+/* ---------- Google AI Bakışı ---------- */
+if(typeof A.googleAsk==="function"){
+ let gs=0;const gw={};
+ window.nativeGoogle=(id,st,t)=>{const f=gw[id];delete gw[id];if(f)f({st,t})};
+ window.googleBrain=q=>new Promise(ok=>{const id="g"+(++gs);gw[id]=ok;A.googleAsk(id,q);setTimeout(()=>{if(gw[id]){delete gw[id];ok({st:"timeout",t:""})}},23000)});
+ const gd=document.createElement("div");
+ gd.innerHTML=`<div class="sub nh">Google AI Bakışı (kotasız, güncel)</div>
+ <label style="display:flex;align-items:center;gap:12px;margin:8px 0;text-align:left"><input type="checkbox" id="gon" style="width:24px;height:24px;flex:none;margin:0"> Önce Google'ın AI Bakışı'na sor</label>
+ <div class="row"><button id="gopen">🔍 Google'ı bir kez aç (onay / robot doğrulaması)</button></div>`;
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(gd,an);
+ $("gon").checked=store.get("g_google",true);$("gon").onchange=()=>store.set("g_google",$("gon").checked);
+ $("gopen").onclick=()=>{window.__gWarned=0;A.googleOpen("")};
 }
 
 })();
