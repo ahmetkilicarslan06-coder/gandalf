@@ -1235,12 +1235,13 @@ async function localMail(t,s,app){
  if(r.st==="noapp"){tell("Telefonda "+app+" uygulamasını bulamadım patron.");return}
  if(r.st!=="ok"){tell(app+" ekranını okuyamadım patron. Bir daha dener misin?");return}
  let raw=[];try{raw=JSON.parse(r.j||"[]")}catch(e){}
- const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla|önerilen|kişiler|en iyi sonuçlar|tümü)$/i;
+ const dbgRow=raw.find(x=>x.startsWith("DEBUG"))||"";raw=raw.filter(x=>!x.startsWith("DEBUG"));
+ const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla|önerilen|kişiler|en iyi sonuçlar|tümü|bildirim merkezi.*|gezinme çekmecesini aç)$/i;
  const SKIP=/^(okunmadı|okunmamış|unread|bayraklı|flagged|seçili değil|ek var|has attachments?|önemli|\d+)$/i;
  let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(q=>q.trim()).filter(q=>q&&!SKIP.test(q)).filter((q,i,a)=>a.indexOf(q)===i)}))
   .filter(x=>x.p.length>=2&&!junk.test(x.p[0]));
  if(!items.length){
-  const dbg=raw.slice(0,3).join(" ⏐ ").slice(0,300);
+  const dbg=(dbgRow||raw.slice(0,3).join(" ⏐ ")).slice(0,600);
   tell(app+" açıldı ama mail satırlarını ayıramadım patron.");
   add("(Ekrandan gelen: "+(dbg||"hiçbir şey")+")","g");return}
  const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
