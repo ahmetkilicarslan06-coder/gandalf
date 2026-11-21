@@ -714,6 +714,7 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
  addEventListener("pointermove",e=>{const x=e.clientX/innerWidth-.5,y=e.clientY/innerHeight-.5;fc.style.setProperty("--ry",(x*14)+"deg");fc.style.setProperty("--rx",(-y*10)+"deg")});
  if(im.complete&&im.naturalWidth)go();else im.onload=go})();
 </script>
+<script>
 /* ==== Gandalf Android uygulaması köprüsü (sadece uygulama içinde çalışır) ==== */
 (function(){
 if(!window.Android)return;
@@ -1124,5 +1125,7 @@ const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return w
 const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
 const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeWait=0;keep(false)}return _wr(t)};
 })();
+
+</script>
 </body>
 </html>
