@@ -1246,7 +1246,7 @@ async function localMail(t,s,app){
  let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(q=>q.trim()).filter(q=>q&&!SKIP.test(q)).filter((q,i,a)=>a.indexOf(q)===i)}))
   .filter(x=>x.p.length>=2&&!junk.test(x.p[0]));
  if(!items.length){
-  const dbg=(dbgRow||raw.slice(0,3).join(" ⏐ ")).slice(0,600);
+  const dbg=(dbgRow||raw.slice(0,3).join(" ⏐ ")).slice(0,1800);
   tell(app+" açıldı ama mail satırlarını ayıramadım patron.");
   add("(Ekrandan gelen: "+(dbg||"hiçbir şey")+")","g");return}
  const unreadQ=/(okunmam|okunmad|yeni gelen|yeni mail|yeni mesaj)/.test(s);
