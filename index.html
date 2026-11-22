@@ -1681,6 +1681,20 @@ Kişi adlarını kullanıcının söylediği gibi yaz. Gereksiz adım ekleme. A�
   return _hr(t,quick)};
 }
 
+
+/* ---------- Hatırlatma şekli ---------- */
+if(typeof A.setRemMode==="function"){
+ const md=document.createElement("div");
+ md.innerHTML=`<div class="row" style="align-items:center;gap:8px"><span class="sub">Hatırlatma şekli</span><select id="remmode"><option value="voice3">Önce 3 kez sesli söyle, cevap yoksa ara</option><option value="call">Doğrudan ara</option></select></div>`;
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(md,an);
+ $("remmode").value=A.remMode();$("remmode").onchange=()=>A.setRemMode($("remmode").value);
+ const _hm=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(/hatırlatma/.test(s)&&/(önce sesli|sesli söyle|3 kere|üç kere|üç kez|3 kez)/.test(s)&&!/(dakika|saat)\s+sonra/.test(s)){add(t,"u");A.setRemMode("voice3");$("remmode").value="voice3";tell("Tamam patron, hatırlatmalarda önce 3 kez sesli söyleyeceğim, tamam demezsen arayacağım.");return}
+  if(/hatırlatma/.test(s)&&/(direkt ara|doğrudan ara|direk ara)/.test(s)&&!/(dakika|saat)\s+sonra/.test(s)){add(t,"u");A.setRemMode("call");$("remmode").value="call";tell("Tamam patron, hatırlatmalarda doğrudan arayacağım.");return}
+  return _hm(t,quick)};
+}
+
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
  const busy=lis||document.body.classList.contains("talk")||document.body.classList.contains("think")||wakeWait||pendYN||pendInput||(typeof convo!=="undefined"&&convo);
