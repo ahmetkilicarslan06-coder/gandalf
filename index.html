@@ -1837,6 +1837,18 @@ if(typeof A.gmailAction==="function"){
 }
 
 
+/* ---------- Eş için takma adlar → rehberdeki "Meleğim" ---------- */
+{const WIFE="Meleğim";
+ const ALIAS=/(^|\s)(gülüm\S*|gülüme\S*|ömü\S*|ömrüm\S*|ömrüme\S*|aşkım\S*|her ?(şey|bi ?şey|bir ?şey)im\S*|hayatım\S*|eşim\S*|karım\S*|karıcığım\S*|bi ?tanem\S*|bir ?tanem\S*|bi ?tanesi\S*|bir ?tanesi\S*|sevgilim\S*)(?=\s|$|[?.!,:])/i;
+ const _hal=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(!pendYN&&!pendInput&&/(ara\b|arar|arasana|arayalım|mesaj|sms|whatsapp|watsap|vatsap|\bwp\b|yaz\b|yazsana|yolla|gönder|konum)/.test(s)&&!/meleğim/.test(s)){
+   const ci=t.indexOf(":");const head=ci>=0?t.slice(0,ci):t,tail=ci>=0?t.slice(ci):"";
+   const m=head.match(ALIAS);
+   if(m){const nt=head.slice(0,m.index)+m[1]+WIFE+head.slice(m.index+m[0].length).replace(/^\s+(de|da)?\s*m[iıuü]\b/i,"")+tail;return _hal(nt,quick)}}
+  return _hal(t,quick)};}
+
+
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
 if(typeof A.cleanGallery==="function"){
  window.nativeClean=n=>tell(n+" fotoğraf kalıcı olarak silindi patron.");
