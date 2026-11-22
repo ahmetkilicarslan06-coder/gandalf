@@ -1566,6 +1566,121 @@ if(typeof A.appSearch==="function"){
    brain="free";store.set("g_brain",brain);$("brain").value=brain;tell("Tamam patron, ücretsiz servislere döndüm.");return}
   return _hb(t,quick)};}
 
+
+/* ---------- Rutinler (kendi skill'lerin) ve ücretsiz ajan ---------- */
+{
+ const RK="g_routines";
+ const DEF={"sabah":["hava durumu nasıl","hatırlatmalarımı oku","bugünün önemli haberleri neler"]};
+ const getR=()=>{const r=store.get(RK,null);return r&&typeof r==="object"?r:DEF};
+ const setR=r=>{store.set(RK,r);renderR()};
+ const busyNow=()=>document.body.classList.contains("think")||document.body.classList.contains("talk")||!!pendYN||!!pendInput;
+ const waitIdle=(max=90000)=>new Promise(ok=>{const t0=Date.now();let calm=0;const iv=setInterval(()=>{if(busyNow())calm=0;else calm+=300;if(calm>=1500||Date.now()-t0>max){clearInterval(iv);ok()}},300)});
+ const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ async function cond(c){c=low(String(c));
+  try{
+   if(/ya[gğ]mur|kar/.test(c)){const u=await getLoc();const q=u.match(/q=(-?[\d.]+),(-?[\d.]+)/);
+    const w=await(await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${q[1]}&longitude=${q[2]}&daily=precipitation_probability_max&timezone=auto&forecast_days=2`)).json();
+    return (w.daily.precipitation_probability_max[/yar[iı]n/.test(c)?1:0]??0)>=50}
+   if(/hafta ?sonu/.test(c)){const d=new Date().getDay();return d===0||d===6}
+   if(/hafta ?i[cç]i/.test(c)){const d=new Date().getDay();return d>0&&d<6}
+  }catch(e){}
+  return false}
+ let running=false;
+ async function runSteps(steps){
+  running=true;window.__inAgent=true;window.__stopRun=false;
+  try{for(const st of steps){if(window.__stopRun)break;
+    if(st&&typeof st==="object"&&st.if){const sub=(await cond(st.if))?(st.then||[]):(st.else||[]);
+     for(const x of sub){if(window.__stopRun)break;await handle(typeof x==="string"?x:(x.say||""));await waitIdle();await pause(400)}continue}
+    if(st&&typeof st==="object"&&st.say){say(st.say);add(st.say,"g");await waitIdle();continue}
+    await handle(String(st));await waitIdle();await pause(400)}}
+  finally{running=false;window.__inAgent=false;window.__stopRun=false}}
+ window.gandalfRun=runSteps;
+ const splitSteps=x=>String(x).split(/\s*(?:,|;|\n|\bsonra\b|\bardından\b|\bdaha sonra\b|\bve sonra\b)\s*/i).map(v=>v.trim()).filter(v=>v.length>1);
+ const norm=n=>low(n).replace(/['’]/g,"").replace(/\s+/g," ").trim();
+ // Ayarlar: rutin listesi
+ const rd=document.createElement("div");
+ rd.innerHTML=`<div class="sub nh">Rutinlerim (kendi görev listelerin)</div><ul id="rlist" style="text-align:left;padding-left:18px;margin:4px 0"></ul>
+ <div class="row"><input id="rname" placeholder="Rutin adı (ör. sabah)" style="flex:1;min-width:0"></div>
+ <div class="row"><textarea id="rsteps" rows="3" placeholder="Her satıra bir komut: hava durumu nasıl / okunmamış mailim var mı / televizyonu aç" style="flex:1;min-width:0"></textarea></div>
+ <div class="row"><button id="radd">Rutini kaydet</button></div>`;
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(rd,an);
+ function renderR(){const u=$("rlist");u.innerHTML="";const r=getR();
+  Object.keys(r).forEach(k=>{const li=document.createElement("li");li.textContent=k+" rutini: "+r[k].join(" → ")+" ";
+   const p=document.createElement("button");p.textContent="▶";p.onclick=()=>{add(k+" rutini","u");runSteps(r[k])};
+   const d=document.createElement("button");d.textContent="Sil";d.onclick=()=>{const x=getR();delete x[k];setR(x)};li.append(p,d);u.append(li)})}
+ renderR();
+ $("radd").onclick=()=>{const n=norm($("rname").value.replace(/rutini?$/i,""));const st=$("rsteps").value.split(/\n+/).map(v=>v.trim()).filter(Boolean);
+  if(!n||!st.length){tell("Rutin için bir ad ve en az bir komut yaz patron.");return}
+  const r=getR();r[n]=st;setR(r);$("rname").value="";$("rsteps").value="";tell(n+" rutini kaydedildi patron. "+n+" rutini dediğinde başlatırım.")};
+
+ // ---- Ajan: karışık istekleri parçalara ayırıp sırayla yapar ----
+ const PLAN_SYS=`Sen Gandalf adlı sesli asistanın görev planlayıcısısın. Kullanıcının isteğini Gandalf'ın anladığı basit Türkçe komutlara böl ve SADECE JSON döndür: {"steps":[...]}.
+Her adım şunlardan biri: 
+- bir komut metni (string),
+- {"if":"yagmur_yarin" | "yagmur_bugun" | "hafta_sonu" | "hafta_ici","then":[komutlar],"else":[komutlar]},
+- {"say":"kullanıcıya söylenecek kısa söz"}.
+Gandalf'ın anladığı komut kalıpları:
+- "<kişi>'e WhatsApp'tan yaz: <mesaj>"
+- "<kişi>'e SMS at: <mesaj>"
+- "<kişi>'i ara"
+- "<kişi>'e konum gönder"
+- "<zaman> <yapılacak iş> hatırlat" (ör. "yarın sabah 7'de şemsiye almayı hatırlat", "10 dakika sonra su içmeyi hatırlat")
+- "hava durumu nasıl", "yarın hava nasıl", "<şehir>'da hava nasıl"
+- "okunmamış mailim var mı", "hatırlatmalarımı oku"
+- "televizyonun sesini aç", "televizyonu kapat", "feneri aç", "Wi-Fi'ı kapat", "müziği durdur", "telefonu sessize al"
+- "Instagram'da <ad> bul", "YouTube'da <şey> aç"
+- "<rutin adı> rutini"
+- herhangi bir genel soru (ör. "dolar kaç lira")
+Kişi adlarını kullanıcının söylediği gibi yaz. Gereksiz adım ekleme. Açıklama yazma, sadece JSON.`;
+ async function freeChat(sys,user){
+  const tryJ=t=>{const m=String(t||"").match(/\{[\s\S]*\}/);if(!m)return null;try{return JSON.parse(m[0])}catch(e){return null}};
+  if(typeof useClaude==="function"&&useClaude()){try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":ckey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-5-5",max_tokens:600,system:sys,messages:[{role:"user",content:user}]})});
+    const j=await r.json();const p=tryJ((j.content||[]).map(x=>x.text||"").join(""));if(p)return p}catch(e){}}
+  if(gkey){for(const model of ["llama-3.3-70b-versatile","openai/gpt-oss-120b"]){try{const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+gkey},body:JSON.stringify({model,messages:[{role:"system",content:sys},{role:"user",content:user}],max_tokens:600,response_format:{type:"json_object"}})});
+    const j=await r.json();const p=tryJ(j.choices?.[0]?.message?.content);if(p)return p}catch(e){}}}
+  const ks=allKeys();
+  for(const k of ks){try{const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key="+encodeURIComponent(k),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:[{role:"user",parts:[{text:user}]}],generationConfig:{responseMimeType:"application/json"}})});
+    const j=await r.json();const p=tryJ(j.candidates?.[0]?.content?.parts?.map(x=>x.text).join(""));if(p)return p}catch(e){}}
+  try{const r=await fetch("https://text.pollinations.ai/",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"openai",messages:[{role:"system",content:sys},{role:"user",content:user}],private:true,jsonMode:true})});
+   const p=tryJ(await r.text());if(p)return p}catch(e){}
+  return null}
+ const ACT=/(gönder|yolla|hatırlat|kapat|söyle|artır|başlat|sessize|(?:^|\s)(?:yaz|at|ara|aç|oku|çek|bak|kıs|bul)(?=\s|$))/g;
+ const isCompound=s=>((s.match(ACT)||[]).length>=2&&/( ve | sonra |ardından|daha sonra|\beğer\b|\S+(ysa|yse|[^\s]sa|[^\s]se)\s)/.test(" "+s+" "))||/^(ajan|görev olarak)\b/.test(s);
+
+ const _hr=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput)return _hr(t,quick);
+  // Durdur
+  if(running&&/^(dur|durdur|yeter|iptal|vazgeç)/.test(s)){window.__stopRun=true;tell("Tamam patron, durdurdum.");return}
+  // Rutin oluştur
+  let m=t.match(/^(.+?)\s+rutin(?:i|ini)?\s+(?:oluştur|kaydet|ekle|tanımla|yap)\s*:?\s*(.*)$/i);
+  if(m){add(t,"u");const n=norm(m[1]);const st=splitSteps(m[2]);
+   const save=list=>{const r=getR();r[n]=list;setR(r);tell(n+" rutini kaydedildi patron: "+list.join(", ")+". "+n+" rutini dediğinde başlatırım.")};
+   if(st.length)save(st);else askIn("Hangi adımlar olsun patron? Aralarına 'sonra' diyerek söyle.",a=>{const x=splitSteps(a);if(x.length)save(x);else tell("Adım anlayamadım patron.")});return}
+  // Rutin sil / listele
+  m=t.match(/^(.+?)\s+rutin(?:i|ini)?\s+sil/i);
+  if(m){add(t,"u");const r=getR(),n=norm(m[1]);if(r[n]){delete r[n];setR(r);tell(n+" rutinini sildim patron.")}else tell(n+" diye bir rutin yok patron.");return}
+  if(/(rutinlerim|rutinler neler|hangi rutinler)/.test(s)){add(t,"u");const r=getR(),ks=Object.keys(r);tell(ks.length?"Rutinlerin: "+ks.map(k=>k+" rutini").join(", ")+".":"Hiç rutinin yok patron.");return}
+  // Rutin çalıştır
+  m=s.match(/^(.+?)\s+rutin(?:i|ini)?(?:\s+(?:başlat|çalıştır|yap|oynat))?$/);
+  if(m){const r=getR(),n=norm(m[1]);if(r[n]){add(t,"u");say(n+" rutinini başlatıyorum patron.");await waitIdle(8000);runSteps(r[n]);return}}
+  // Hatırlatmalarımı oku
+  if(/(hatırlatmalarım|hatırlatmaları oku|hatırlatmalarımı)/.test(s)&&!/(sil|iptal)/.test(s)){add(t,"u");const now=Date.now();
+   const list=(typeof rems!=="undefined"?rems:[]).filter(r=>r.at>now).sort((a,b)=>a.at-b.at).slice(0,6);
+   tell(list.length?"Hatırlatmaların: "+list.map(r=>new Date(r.at).toLocaleString("tr-TR",{weekday:"long",hour:"2-digit",minute:"2-digit"})+" "+r.what).join(", ")+".":"Bekleyen hatırlatman yok patron.");return}
+  // Ajan
+  if(!window.__inAgent&&isCompound(s)){
+   add(t,"u");document.body.classList.add("think");setSt("Görevi planlıyorum…");
+   const p=await freeChat(PLAN_SYS,t.replace(/^(ajan|görev olarak)\s*/i,""));
+   document.body.classList.remove("think");setSt("");
+   const steps=p&&Array.isArray(p.steps)?p.steps.filter(Boolean):[];
+   if(steps.length<1){hist.length;window.__inAgent=true;try{await _hr(t,quick)}finally{window.__inAgent=false}return}
+   const desc=steps.map((x,i)=>(i+1)+". "+(typeof x==="string"?x:x.if?("eğer "+String(x.if).replace(/_/g," ")+": "+(x.then||[]).join(", ")+((x.else||[]).length?" değilse: "+x.else.join(", "):"")):x.say||"")).join("\n");
+   add("Plan:\n"+desc,"g");say("Tamam patron, "+steps.length+" adımda yapıyorum.");await waitIdle(8000);
+   runSteps(steps);return}
+  return _hr(t,quick)};
+}
+
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
  const busy=lis||document.body.classList.contains("talk")||document.body.classList.contains("think")||wakeWait||pendYN||pendInput||(typeof convo!=="undefined"&&convo);
