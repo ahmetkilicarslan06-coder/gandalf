@@ -1347,7 +1347,8 @@ async function weatherRoute(t,s){
 {const _hw=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
   if(window.__wakeStop)window.__wakeStop();
-  if(/(hava durumu|hava nasıl|havalar nasıl|kaç derece|yağmur yağacak|yağmur var mı|kar yağacak|şemsiye|hava soğuk mu|hava sıcak mı|havası nasıl)/.test(s)&&!/(televizyon|\btv\b)/.test(s))return weatherRoute(t,s);
+  const notWx=/(fırın|piş|tarif|yemek|börek|kek|pasta|ekmek|et\b|tavuk|kaynar|kaynat|ateş|vücut|motor|klima|kombi|buzdolab|çamaşır|bulaşık|derecede)/.test(s);
+  if(!notWx&&(/(hava durumu|hava nasıl|havalar nasıl|yağmur yağacak|yağmur var mı|kar yağacak|şemsiye|hava soğuk mu|hava sıcak mı|havası nasıl|hava kaç derece)/.test(s)||(/kaç derece/.test(s)&&/(hava|dışarı|bugün|yarın|şu an|şimdi)/.test(s)))&&!/(televizyon|\btv\b)/.test(s))return weatherRoute(t,s);
   return _hw(t,quick)};}
 
 /* ---------- Asistanın adı ve seslenince söyleyeceği söz ---------- */
