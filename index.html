@@ -1278,13 +1278,14 @@ async function localMail(t,s,app){
 
  setSt(app+(who?" içinde "+who+" aranıyor…":" açılıyor, bakıyorum…"));
  const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
-  if(typeof A.screenFind==="function")A.screenFind(id,app==="Teams"?"teams":"outlook",who);else A.screenRead(id,app==="Teams"?"teams":"outlook");
+  const ak=app==="Teams"?"teams":app==="Gmail"?"gmail":"outlook";
+  if(typeof A.screenFind==="function")A.screenFind(id,ak,who);else A.screenRead(id,ak);
   setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
  if(r.st==="noapp"){tell("Telefonda "+app+" uygulamasını bulamadım patron.");return}
  if(r.st!=="ok"){tell(app+" ekranını okuyamadım patron. Bir daha dener misin?");return}
  let raw=[];try{raw=JSON.parse(r.j||"[]")}catch(e){}
  const dbgRow=raw.find(x=>x.startsWith("DEBUG"))||"";raw=raw.filter(x=>!x.startsWith("DEBUG"));
- const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla|önerilen|kişiler|en iyi sonuçlar|tümü|bildirim merkezi.*|gezinme çekmecesini aç)$/i;
+ const junk=/^(odaklanmış|diğer|filtrele|gelen kutusu|posta|takvim|uygulamalar|ara|yeni posta|sohbet|etkinlik|takımlar|ekipler|daha fazla|önerilen|kişiler|en iyi sonuçlar|tümü|bildirim merkezi.*|gezinme çekmecesini aç|birincil|tanıtımlar|güncellemeler|sosyal|forumlar|primary|promotions|updates|social|oluştur|postalarda arama yapın)$/i;
  const SKIP=/^(okunmadı|okunmamış|unread|bayraklı|flagged|seçili değil|ek var|has attachments?|önemli|\d+)$/i;
  let items=raw.map(x=>({u:/okunmad|okunmam|unread/i.test(x),p:x.split("|").map(q=>q.trim()).filter(q=>q&&!SKIP.test(q)).filter((q,i,a)=>a.indexOf(q)===i)}))
   .filter(x=>x.p.length>=2&&!junk.test(x.p[0]));
@@ -1334,7 +1335,7 @@ async function pickMail(ans){
  document.body.classList.add("think");setSt(it.p[0]+" mailini açıyorum…");
  const key=it.p[0]+"\u0001"+(it.p[1]||"").slice(0,30);
  const r=await new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;
-  if(P.owa&&typeof A.owaOpen==="function")A.owaOpen(id,it.i);else A.screenFind(id,P.app==="Teams"?"teams":"outlook","open:"+key);
+  if(P.owa&&typeof A.owaOpen==="function")A.owaOpen(id,it.i);else A.screenFind(id,P.app==="Teams"?"teams":P.app==="Gmail"?"gmail":"outlook","open:"+key);
   setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
  document.body.classList.remove("think");setSt("");
  if(r.st==="notfound"){tell("O maili listede bulamadım patron, yeri değişmiş olabilir.");return}
@@ -1693,6 +1694,77 @@ if(typeof A.setRemMode==="function"){
   if(/hatırlatma/.test(s)&&/(önce sesli|sesli söyle|3 kere|üç kere|üç kez|3 kez)/.test(s)&&!/(dakika|saat)\s+sonra/.test(s)){add(t,"u");A.setRemMode("voice3");$("remmode").value="voice3";tell("Tamam patron, hatırlatmalarda önce 3 kez sesli söyleyeceğim, tamam demezsen arayacağım.");return}
   if(/hatırlatma/.test(s)&&/(direkt ara|doğrudan ara|direk ara)/.test(s)&&!/(dakika|saat)\s+sonra/.test(s)){add(t,"u");A.setRemMode("call");$("remmode").value="call";tell("Tamam patron, hatırlatmalarda doğrudan arayacağım.");return}
   return _hm(t,quick)};
+}
+
+
+/* ---------- Gmail uygulaması: okuma, önemli, özet (telefonda), çöp kutusu, toplu silme ---------- */
+if(typeof A.gmailAction==="function"){
+ const gw={};let gn=0;const prevT=window.nativeTile;
+ window.nativeTile=(id,r)=>{if(gw[id]){const f=gw[id];delete gw[id];f(r)}else if(prevT)prevT(id,r)};
+ const gAct=(what,max)=>new Promise(ok=>{const id="m"+(++gn);gw[id]=ok;A.gmailAction(id,what,max||0);setTimeout(()=>{if(gw[id]){delete gw[id];ok("timeout")}},600000)});
+ const lw={};let ln=0;const prevL=window.nativeLlm;
+ window.nativeLlm=(id,ok,t)=>{if(lw[id]){const f=lw[id];delete lw[id];f(ok,t)}else if(prevL)prevL(id,ok,t)};
+ const llm=(sys,txt)=>new Promise(ok=>{const id="ml"+(++ln);lw[id]=(g,t)=>ok(g?String(t||"").replace(/[*#]+/g,"").trim():"");A.llmAsk(id,sys,txt);setTimeout(()=>{if(lw[id]){delete lw[id];ok("")}},120000)});
+ const modelReady=()=>{try{return !!JSON.parse(A.llmState()).downloaded}catch(e){return false}};
+ const readGmail=()=>new Promise(ok=>{const id="s"+(++sn);sw[id]=ok;A.screenFind(id,"gmail","");setTimeout(()=>{if(sw[id]){delete sw[id];ok({st:"timeout"})}},25000)});
+ const _hg=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput||!/(gmail|g mail|gmeyl|cimeyl|ci meyl|kişisel mail)/.test(s))return _hg(t,quick);
+  add(t,"u");
+  if(!A.waAutoOk()){tell("Patron, Gmail'i kullanabilmem için Ayarlar'daki Erişilebilirlik iznini açman gerekiyor.");return}
+  // Çöp kutusunu boşalt
+  if(/(çöp|silinmiş|silinenler)/.test(s)&&/(boşalt|sil|temizle)/.test(s)){
+   askYN("Patron, Gmail'in çöp kutusundaki bütün mailler kalıcı olarak silinecek, geri alınamaz. Boşaltayım mı?",async()=>{
+    tell("Boşaltıyorum patron.");const r=await gAct("trash");
+    tell(r==="ok"?"Gmail çöp kutusu boşaltıldı patron.":r==="noapp"?"Telefonda Gmail uygulamasını bulamadım.":"Çöp kutusunu boşaltırken takıldım patron. Çöp kutusu zaten boş olabilir.")},()=>tell("Tamam, dokunmadım."));return}
+  // Gelen kutusunu sil
+  if(/(tüm|bütün|hepsini|gelen kutusunu)/.test(s)&&/(sil|temizle)/.test(s)){
+   askYN("Patron, Gmail'in Birincil gelen kutusundaki mailleri sayfa sayfa çöp kutusuna taşıyacağım. Çok mail varsa birkaç dakika sürer, bu sırada telefona dokunma. Başlayayım mı?",async()=>{
+    tell("Başlıyorum patron.");const r=await gAct("inbox",60);
+    const n=+(String(r).split(":")[1]||0);
+    tell(r.startsWith("ok")?n+" maili çöp kutusuna taşıdım patron. Kalıcı silmek istersen çöp kutusunu boşalt de.":"Silerken takıldım patron"+(n?", "+n+" mail silindi.":"."))},()=>tell("Tamam, dokunmadım."));return}
+  // Okuma / sayma / özet
+  setSt("Gmail'e bakıyorum…");
+  const r=await readGmail();setSt("");
+  if(r.st==="noapp"){tell("Telefonda Gmail uygulamasını bulamadım patron.");return}
+  if(r.st!=="ok"){tell("Gmail ekranını okuyamadım patron.");return}
+  let raw=[];try{raw=JSON.parse(r.j||"[]")}catch(e){}raw=raw.filter(x=>!x.startsWith("DEBUG"));
+  const CAT=/^(birincil|tanıtımlar|güncellemeler|sosyal|forumlar|primary|promotions|updates|social|forums|oluştur|postalarda arama yapın)\b/i;
+  const items=raw.map(x=>({x,u:/okunmad|okunmam|unread/i.test(x),imp:/önemli|important/i.test(x),p:x.split("|").map(q=>q.trim()).filter(q=>q&&!/^(okunmadı|okunmamış|unread|yıldızlı değil|yıldızsız|önemli|important|\d+ new|\d+\+ new)$/i.test(q))})).filter(o=>o.p.length>=2&&!CAT.test(o.p[0]));
+  const cats=raw.filter(x=>CAT.test(x.trim())).map(x=>x.split("|").map(q=>q.trim()).filter(Boolean).join(" "));
+  if(!items.length){tell("Gmail açıldı ama mailleri ayıramadım patron.");add("(Ekrandan gelen: "+raw.slice(0,3).join(" ⏐ ").slice(0,600)+")","g");return}
+  const unread=items.filter(o=>o.u),imp=items.filter(o=>o.imp);
+  if(/özet/.test(s)){
+   const pick=(imp.length?imp:unread.length?unread:items).slice(0,8);
+   const list=pick.map((o,i)=>(i+1)+". "+o.p.slice(0,4).join(" — ")).join("\n");
+   if(!modelReady()){add(list,"g");tell("Patron, içerik telefondan çıkmasın diye özeti telefondaki modelle yapıyorum ama model indirilmemiş. Ayarlar'dan indirebilirsin. Şimdilik başlıkları okuyorum: "+pick.map(o=>o.p[0]+", "+(o.p[1]||"")).join(". "));return}
+   document.body.classList.add("think");setSt("Telefondaki model özetliyor…");
+   const sum=await llm("Sen Gandalf'sın. Kullanıcıya 'patron' diye hitap et. Verilen e-posta listesini Türkçe, kısa ve sesli okunacak şekilde özetle: kimden ne geldiğini ve önemli/acil görünenleri söyle. Madde işareti kullanma.",list);
+   document.body.classList.remove("think");setSt("");
+   add(list,"g");tell(sum||"Özet çıkaramadım patron. Başlıklar: "+pick.map(o=>o.p[0]+", "+(o.p[1]||"")).join(". "));return}
+  let m="Gmail'de ekranda "+items.length+" mail görüyorum patron. ";
+  m+=unread.length?unread.length+" tanesi okunmamış. ":"Okunmamış işaretli mail görmedim. ";
+  if(/önemli/.test(s))m+=imp.length?imp.length+" tanesi önemli işaretli: "+imp.slice(0,5).map(o=>o.p[0]).join(", ")+". ":"Önemli işaretini ekrandan ayıramadım. ";
+  if(cats.length)m+="Diğer kategoriler: "+cats.join(", ")+". ";
+  window.__mailPick={list:(unread.length?unread:items).slice(0,12).map(o=>({p:o.p,u:o.u})),app:"Gmail",owa:false};
+  m+="Gönderenler: "+window.__mailPick.list.slice(0,8).map((o,i)=>(i+1)+". "+o.p[0]).join(", ")+". Hangisini açıp okuyayım?";
+  add(m,"g");pendInput=pickMail;say(m,autoListen)};
+}
+
+
+/* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
+if(typeof A.cleanGallery==="function"){
+ window.nativeClean=n=>tell(n+" fotoğraf kalıcı olarak silindi patron.");
+ const _hc=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(!pendYN&&!pendInput&&/(sil|temizle)/.test(s)&&/(ekran görüntü|ekran resim|screenshot|whatsapp.{0,20}(fotoğraf|resim)|(fotoğraf|resim).{0,20}whatsapp|galeri)/.test(s)&&!/(gmail|mail)/.test(s)){
+   add(t,"u");
+   const ss=/(ekran görüntü|ekran resim|screenshot)/.test(s),wa=/whatsapp/.test(s);
+   const kinds=ss&&!wa?"ss":wa&&!ss?"wa":"ss,wa";
+   const what=kinds==="ss"?"ekran görüntülerini":kinds==="wa"?"WhatsApp'tan gelen fotoğrafları":"ekran görüntülerini ve WhatsApp'tan gelen fotoğrafları";
+   const m="Patron, "+what+" kontrol ekranında gösteriyorum. Saklamak istediklerine dokunup işaretini kaldır, sonra Sil'e bas. Silinenler kalıcı olarak silinir.";
+   add(m,"g");say(m,()=>A.cleanGallery(kinds));return}
+  return _hc(t,quick)};
 }
 
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
