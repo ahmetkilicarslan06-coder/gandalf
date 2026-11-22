@@ -1767,6 +1767,81 @@ if(typeof A.cleanGallery==="function"){
   return _hc(t,quick)};
 }
 
+
+/* ---------- Ekran ajanı: herhangi bir uygulamada amaca göre kendisi gezinir (telefondaki modelle) ---------- */
+if(typeof A.agentSnap==="function"){
+ const lw2={};let ln2=0;const prevL2=window.nativeLlm;
+ window.nativeLlm=(id,ok,t)=>{if(lw2[id]){const f=lw2[id];delete lw2[id];f(ok,t)}else if(prevL2)prevL2(id,ok,t)};
+ const llm2=(sys,txt)=>new Promise(ok=>{const id="ag"+(++ln2);lw2[id]=(g,t)=>ok(g?String(t||""):"");A.llmAsk(id,sys,txt);setTimeout(()=>{if(lw2[id]){delete lw2[id];ok("")}},90000)});
+ const ready=()=>{try{return !!JSON.parse(A.llmState()).downloaded}catch(e){return false}};
+ const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ const yesno=q=>new Promise(ok=>askYN(q,()=>ok(true),()=>ok(false)));
+ const RISKY=/(gönder|sil|kaldır|satın|öde|ödeme|sipariş|onayla|siparişi tamamla|send|delete|remove|buy|pay|order|confirm|boşalt|empty|aktar|transfer|paylaş|yayınla|post)/i;
+ const AG_SYS=`Sen telefonu kullanıcı adına kullanan bir asistansın. Her seferinde ekrandaki numaralı öğelere bakıp amaca ulaşmak için SADECE BİR sonraki adımı seç.
+Cevabın yalnızca tek satır JSON olsun, başka hiçbir şey yazma. Seçenekler:
+{"a":"tap","i":NUMARA}  -> o düğmeye bas
+{"a":"long","i":NUMARA} -> uzun bas (seçmek için)
+{"a":"type","i":NUMARA,"t":"YAZI"} -> yazı kutusuna yaz
+{"a":"enter"} -> klavyede ara/gönder tuşu
+{"a":"scroll"} -> aşağı kaydır
+{"a":"scrollup"} -> yukarı kaydır
+{"a":"back"} -> geri
+{"a":"done","m":"kullanıcıya kısa sonuç"} -> amaç tamamlandıysa ya da yapılamıyorsa
+Aynı adımı tekrar tekrar yapma. Amaç tamamlandıysa hemen done ver.`;
+ let agentBusy=false;
+ async function screenAgent(goal,appName){
+  if(!ready()){tell("Patron, ekran ajanı telefondaki modelle çalışıyor ama model indirilmemiş. Ayarlar'dan telefondaki modeli indirmen gerekiyor.");return}
+  if(!A.waAutoOk()){tell("Patron, bunun için Ayarlar'daki Erişilebilirlik iznini açman gerekiyor.");return}
+  agentBusy=true;window.__agentStop=false;
+  say(appName?appName+" uygulamasında işe başlıyorum patron. Durdurmak için "+NM()+" deyip dur de.":"Ekranda işe başlıyorum patron.");
+  await pause(2500);
+  if(appName){if(!A.openApp(appName)){agentBusy=false;tell(appName+" uygulamasını bulamadım patron.");return}}else A.goBackground();
+  await pause(3000);
+  const done=[];let lastKey="",same=0;
+  try{
+   for(let step=0;step<15;step++){
+    if(window.__agentStop){A.bringFront();tell("Durdum patron.");return}
+    let sn;try{sn=JSON.parse(A.agentSnap())}catch(e){sn=null}
+    if(!sn||!sn.els){A.bringFront();tell("Ekranı okuyamadım patron.");return}
+    const lines=sn.els.map(e=>e.i+": ["+e.k+"] "+(e.t||"(adsız)")).join("\n");
+    const prompt="Amaç: "+goal+"\nAçık uygulama: "+sn.app+"\nEkrandaki yazılar: "+(sn.info||[]).join(" | ")+"\nŞimdiye kadar yapılanlar: "+(done.join("; ")||"hiçbiri")+"\nEkrandaki öğeler:\n"+lines+"\nSıradaki tek adım (JSON):";
+    const out=await llm2(AG_SYS,prompt);
+    const mm=out.match(/\{[^{}]*\}/);let act=null;try{act=mm&&JSON.parse(mm[0])}catch(e){}
+    if(!act||!act.a){done.push("(anlaşılmayan cevap)");if(done.length>3&&done.slice(-3).every(x=>x==="(anlaşılmayan cevap)")){A.bringFront();tell("Telefondaki model bu ekranda ne yapacağını bulamadı patron. Sesli kumandayla adım adım yönlendirebilirsin.");return}continue}
+    if(act.a==="done"){A.bringFront();await pause(800);tell(act.m||"Bitti patron.");return}
+    const el=sn.els.find(e=>e.i===act.i);
+    const label=el?el.t:"";
+    const key=act.a+":"+label+":"+(act.t||"");same=key===lastKey?same+1:0;lastKey=key;
+    if(same>=2){A.bringFront();tell("Aynı adımda takıldım patron, durdum. Son ekranda "+(label||act.a)+" vardı.");return}
+    if((act.a==="tap"||act.a==="long"||act.a==="enter")&&RISKY.test(label||"")){
+     A.bringFront();await pause(900);
+     const okk=await yesno("Patron, "+sn.app+" içinde '"+label+"' düğmesine basacağım. Onaylıyor musun?");
+     if(!okk){tell("Tamam patron, basmadım ve durdum.");return}
+     A.goBackground();await pause(1800);
+     // ekran değişmiş olabilir: aynı adlı öğeyi yeniden bul
+     try{const s2=JSON.parse(A.agentSnap());const e2=s2.els.find(e=>e.t===label);if(e2)act.i=e2.i}catch(e){}
+    }
+    const r=A.agentAct(JSON.stringify(act));
+    done.push((act.a==="type"?"yazdı '"+act.t+"'":act.a==="tap"?"bastı '"+label+"'":act.a==="long"?"uzun bastı '"+label+"'":act.a)+(r==="ok"?"":" (olmadı)"));
+    setSt("Ajan: "+done[done.length-1]);
+    await pause(1700)}
+   A.bringFront();tell("15 adımda bitiremedim patron. Yaptıklarım: "+done.slice(-5).join(", ")+".")
+  }finally{agentBusy=false}}
+ window.screenAgent=screenAgent;
+ const _hs=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(agentBusy&&/^(dur|durdur|yeter|iptal|vazgeç)/.test(s)){window.__agentStop=true;add(t,"u");tell("Durduruyorum patron.");return}
+  if(pendYN||pendInput)return _hs(t,quick);
+  const trig=/^(ajan|ekran ajanı)\b/.test(s)||/(benim yerime|kendin yap|sen yap|ekrandan yap)/.test(s)||/uygulamasına gir/.test(s);
+  if(trig){add(t,"u");
+   const am=t.match(/([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+)?)\s*(?:uygulamasına gir|uygulamasında|uygulamasını aç|['’](?:[yn]?[ıiuüae]|[dt][ae])\s)/i);
+   let app=am?am[1].replace(/^(ajan|ekran ajanı)\s+/i,"").trim():"";
+   if(app&&/^(benim|sen|kendin|ekran)$/i.test(app))app="";
+   const goal=t.replace(/^(ajan|ekran ajanı)\s*[:,]?\s*/i,"").replace(/(benim yerime|kendin yap|sen yap|ekrandan yap)/ig,"").trim();
+   return screenAgent(goal||t,app)}
+  return _hs(t,quick)};
+}
+
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
  const busy=lis||document.body.classList.contains("talk")||document.body.classList.contains("think")||wakeWait||pendYN||pendInput||(typeof convo!=="undefined"&&convo);
