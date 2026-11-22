@@ -413,11 +413,28 @@ async function ask(q,forceLong){
   w.remove();document.body.classList.remove("think");add(txt,"g",src);say(txt);
  }catch(e){hist.pop();document.body.classList.remove("think");const m="Hata: "+e.message;w.textContent=m;$("cap").textContent=m}}
 
+/* Tekrarlayan hatırlatma: "her gün", "perşembeye kadar", "3 gün boyunca", "hafta sonuna kadar" */
+const GUNLER={pazar:0,pazartesi:1,"salı":2,sali:2,"çarşamba":3,carsamba:3,"perşembe":4,persembe:4,cuma:5,cumartesi:6};
+function repOf(s){s=s.toLocaleLowerCase("tr-TR");let until=null,n=0;
+ const g=s.match(/(pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe|cumartesi|cuma|pazar)(?:\s*gün[üu]?)?\S*\s+kadar/);
+ if(g){const d=new Date();d.setHours(23,59,0,0);const want=GUNLER[g[1]];let k=(want-d.getDay()+7)%7;d.setDate(d.getDate()+k);until=+d}
+ else if(/hafta\s*sonuna\s*kadar|bu hafta boyunca/.test(s)){const d=new Date();d.setHours(23,59,0,0);d.setDate(d.getDate()+((7-d.getDay())%7));until=+d}
+ else if((n=+((s.match(/(\d+)\s*gün\s*(boyunca|süreyle|her gün)/)||[])[1]||0))){const d=new Date();d.setHours(23,59,0,0);d.setDate(d.getDate()+n-1);until=+d}
+ const daily=!!until||/(her gün|hergün|her sabah|her akşam|her gece|günlük|her öğlen)/.test(s);
+ return daily?{until:until||(Date.now()+6*864e5)}:null}
+function repClean(w){return w.replace(/(pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe|cumartesi|cuma|pazar)(?:\s*gün[üu]?)?\S*\s+kadar/g,"").replace(/hafta\s*sonuna\s*kadar|bu hafta boyunca|\d+\s*gün\s*(boyunca|süreyle)|her gün|hergün|her sabah|her akşam|her gece|günlük|her öğlen/g,"").replace(/\s+/g," ").trim()}
+function addRems(first,what,until){const out=[];for(let t=first;t<=until&&out.length<31;t+=864e5){const r={at:t,what};rems.push(r);if(window.Android)Android.remind(r.at,r.what);out.push(r)}store.set("g_rem",rems);store.set("g_lastRem",{at:first,what});renderRem();return out}
 async function handle(t,quick){t=t.trim();if(!t)return;add(t,"u");
  const r=parseRem(t);
+ if(r&&r.err&&/(bu|son|o|şu)\s+hatırlatma/.test(t.toLocaleLowerCase("tr-TR"))){const rp=repOf(t),last=store.get("g_lastRem",null);
+  if(rp&&last){const d0=new Date(last.at);let first=last.at+864e5;while(first<Date.now())first+=864e5;const list=addRems(first,last.what,rp.until);
+   const m=list.length?"Tamam patron, '"+last.what+"' hatırlatmasını "+list.length+" gün daha, her gün "+d0.toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})+"'de tekrarlayacağım.":"O güne kadar eklenecek gün kalmadı patron.";add(m,"g");say(m);return}}
  if(r){if(r.err){const m="Zamanı anlayamadım. Örnek: '20 dakika sonra su içmeyi hatırlat' veya 'yarın saat 9'da toplantıyı hatırlat'.";add(m,"g");say(m);return}
-  rems.push(r);if(window.Android)Android.remind(r.at,r.what);store.set("g_rem",rems);renderRem();
+  const rp=repOf(t);
   if("Notification"in window&&Notification.permission==="default")Notification.requestPermission();
+  if(rp){const w=repClean(r.what)||"Zamanı geldi";const list=addRems(r.at,w,rp.until);
+   const m="Tamam patron, "+list.length+" gün boyunca her gün "+new Date(r.at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})+"'de hatırlatacağım: "+w+". Son hatırlatma "+new Date(list[list.length-1].at).toLocaleDateString("tr-TR",{weekday:"long"})+" günü.";add(m,"g");say(m);return}
+  rems.push(r);if(window.Android)Android.remind(r.at,r.what);store.set("g_rem",rems);store.set("g_lastRem",{at:r.at,what:r.what});renderRem();
   const m="Tamam patron, "+new Date(r.at).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"})+"'de hatırlatacağım: "+r.what;add(m,"g");say(m);return}
  if(pendLen){const v=lenAnswer(t),q=pendLen;
   if(/^(iptal|vazgeç|boşver)/i.test(t.trim())){pendLen=null;$("act").hidden=true;reply("Tamam patron, vazgeçtim.");return}
