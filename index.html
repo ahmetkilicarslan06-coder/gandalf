@@ -1593,7 +1593,7 @@ window.mapsBrief=function(arr){
  const mins=d=>{const h=d.match(/(\d+)\s*sa/i),m=d.match(/(\d+)\s*dk/i);return (h?+h[1]*60:0)+(m?+m[1]:0)};
  const say1=d=>{const h=Math.floor(mins(d)/60),m=mins(d)%60;return (h?h+" saat ":"")+(m?m+" dakika":"").trim()};
  const durs=[];for(const x of T){if(x.length>40)continue;const m=x.match(DUR);if(m&&!/(önce|sonra|yürü|toplu|otobüs|tren)/i.test(x)){const d=m[0].trim();if(!durs.some(o=>mins(o)===mins(d)))durs.push(d)}}
- durs.sort((a,b)=>mins(a)-mins(b));
+ durs.sort((a,b)=>mins(a)-mins(b));window.__mapsDurs=durs.slice(0,4);window.__mapsMins=mins;
  const km=(T.find(x=>/\(\s*[\d.,]+\s*km\s*\)/.test(x))||"").match(/[\d.,]+\s*km/);
  const notes=[...new Set(T.filter(x=>/(kaza|çarpışma|yol çalışma|çalışması|kapalı|trafik|yoğun|gecikme|tıkanık|kısıtlama|en hızlı|her zamanki|daha yavaş|dk\.? daha|dakika daha)/i.test(x)&&x.length<160&&!/^(trafik|katmanlar)$/i.test(x)).map(x=>x.replace(/\s*\|\s*/g," ").trim()))].slice(0,6);
  const TI=T.filter(x=>!/(etkilenmeyen|kaçın)/i.test(x));const inc=[];if(TI.some(x=>/(kaza|çarpışma|crash)/i.test(x)))inc.push("rotada kaza bildirimi");if(TI.some(x=>/(yol çalışma|çalışması|roadwork|construction)/i.test(x)))inc.push("yol çalışması");if(TI.some(x=>/(kapalı yol|yol kapalı|kapanış)/i.test(x)))inc.push("kapalı yol");
@@ -1620,13 +1620,25 @@ window.mapsBrief=function(arr){
   setSt("");
   if(!brief){say("Patron, "+dest+" rotasını açtım ama süreleri ekrandan okuyamadım.");return}
   add(brief,"g");
-  say(brief+(start?"En hızlı rotayla navigasyonu başlatıyorum.":"Başlatmamı istersen navigasyonu başlat de."),()=>{if(start)setTimeout(()=>A.tapText("Başla|Start"),500)});
-  if(!start){window.__mapsStart=Date.now()}
- };
- const _hs=handle;
- handle=async function(t,quick){const s=low(String(t||""));
-  if(window.__mapsStart&&Date.now()-window.__mapsStart<300000&&/^(navigasyonu )?(başlat|başla|yola çık|tamam başlat)/.test(s.trim())){window.__mapsStart=0;add(t,"u");A.openApp("Haritalar");setTimeout(()=>A.tapText("Başla|Start"),1500);tell("Başlatıyorum patron, iyi yolculuklar.");return}
-  return _hs(t,quick)};
+  const D=window.__mapsDurs||[];
+  if(D.length<2){askYN(brief+"Başlatayım mı patron?",()=>{A.openApp("Haritalar");setTimeout(()=>A.tapText("Başla|Start"),1500);tell("Başlatıyorum patron, iyi yolculuklar.")},()=>tell("Tamam, başlatmadım."));return}
+  const q="Hangisini kullanalım patron? Süresini söyle ya da en hızlı de.";
+  add(q,"g");pendInput=pickRoute;say(brief+q,autoListen)};
+ const NUMW={bir:1,iki:2,"üç":3,"dört":4,"beş":5,"altı":6,yedi:7,sekiz:8,dokuz:9,on:10,yirmi:20,otuz:30,"kırk":40,elli:50};
+ const toNum=s=>s.replace(/(elli|kırk|otuz|yirmi|on)?\s*(bir|iki|üç|dört|beş|altı|yedi|sekiz|dokuz)?(?=\s*(saat|sa\b|dakika|dk|$|\s))/g,(m,a,b)=>(a||b)?String((NUMW[a]||0)+(NUMW[b]||0)):m);
+ async function pickRoute(ans){const D=window.__mapsDurs||[],mins=window.__mapsMins;let s=low(String(ans||"")).trim();
+  if(/(vazgeç|iptal|hiçbiri|gerek yok)/.test(s)){tell("Tamam patron, başlatmadım.");return}
+  s=toNum(s);let i=-1;
+  if(/(en hızlı|ilk|birinci|kısa)/.test(s))i=0;else if(/(ikinci|ortadaki)/.test(s))i=1;else if(/(üçüncü)/.test(s))i=2;else if(/(en yavaş|son|en uzun)/.test(s))i=D.length-1;
+  if(i<0){const h=s.match(/(\d+)\s*(saat|sa)/),m=s.match(/(\d+)\s*(dakika|dk)/)||s.match(/(?:saat|sa\.?)\s*(\d+)/)||(!h&&s.match(/(\d+)/));
+   const want=h?+h[1]*60+(m?+m[1]:0):m?+m[1]:-1;
+   if(want>=0){i=D.findIndex(d=>mins(d)===want);if(i<0&&!h)i=D.findIndex(d=>mins(d)%60===want)}}
+  if(i<0||!D[i]){add("Anlamadım patron. Seçenekler: "+D.join(", "),"g");pendInput=pickRoute;say("Anlamadım patron. Süresini tekrar söyler misin? "+D.join(", "),autoListen);return}
+  tell(D[i]+" süren rotayı seçip başlatıyorum patron.");
+  A.openApp("Haritalar");await new Promise(r=>setTimeout(r,1800));
+  if(i>0){const lab=D[i];if(!A.tapText(lab+"|"+lab.replace(/\.$/,""))){add("Rotayı haritada seçemedim, en hızlıyla başlatıyorum.","g")}await new Promise(r=>setTimeout(r,1500))}
+  if(!A.tapText("Başla|Start"))tell("Başla düğmesine basamadım patron, ekrandan dokunabilirsin.")}
+
 }
 
 
