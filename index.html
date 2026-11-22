@@ -1839,7 +1839,7 @@ if(typeof A.gmailAction==="function"){
 
 /* ---------- Eş için takma adlar → rehberdeki "Meleğim" ---------- */
 {const WIFE="Meleğim";
- const ALIAS=/(^|\s)((?:ümmü|ümü|ömmü|ümmi|ömmi|emmi|emi|ömi|ümi)(?:['’]?(?:y[iıuü]|y[ae]|n[iıuü]n|d[ae]|y[iıuü]d[ae]))?|gülüm\S*|gülüme\S*|ömü\S*|ömrüm\S*|ömrüme\S*|aşkım\S*|her ?(şey|bi ?şey|bir ?şey)im\S*|hayatım\S*|eşim\S*|karım\S*|karıcığım\S*|bi ?tanem\S*|bir ?tanem\S*|bi ?tanesi\S*|bir ?tanesi\S*|sevgilim\S*)(?=\s|$|[?.!,:])/i;
+ const ALIAS=/(^|\s)((?!ümit|emin|emir|emre|ömer|ümmühan|ümran|emil)[öüe]m{1,2}[üiıu]\S*|gülüm\S*|gülüme\S*|ömü\S*|ömrüm\S*|ömrüme\S*|aşkım\S*|her ?(şey|bi ?şey|bir ?şey)im\S*|hayatım\S*|eşim\S*|karım\S*|karıcığım\S*|bi ?tanem\S*|bir ?tanem\S*|bi ?tanesi\S*|bir ?tanesi\S*|sevgilim\S*)(?=\s|$|[?.!,:])/i;
  const _hal=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
   if(!pendYN&&!pendInput&&/(ara\b|arar|arasana|arayalım|mesaj|sms|whatsapp|watsap|vatsap|\bwp\b|yaz\b|yazsana|yolla|gönder|konum)/.test(s)&&!/meleğim/.test(s)){
