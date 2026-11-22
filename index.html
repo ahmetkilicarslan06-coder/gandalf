@@ -170,6 +170,7 @@ $("spk").onclick=()=>{speak=!speak;$("spk").textContent="Ses: "+(speak?"açık":
 $("save").onclick=()=>{ckey=$("ck").value.trim();store.set("g_ck",ckey);ytKey=$("yt").value.trim();store.set("g_yt",ytKey);gkey=$("gk").value.trim();store.set("g_gk",gkey);key=$("key").value.trim();modelList=null;store.set("g_key",key);add("Anahtar kaydedildi.","g")};
 
 /* ---- Hatırlatma ---- */
+function re4(m){return m.length>4&&m[4]!==undefined}
 function parseRem(t){
  const s0=t.toLocaleLowerCase("tr-TR");if(!/hatırlat|hatirlat|alarm|beni ara|beni arayıp|beni arayip|beni arasana|beni çaldır/.test(s0))return null;
  const NUM={bir:1,iki:2,"üç":3,uc:3,"dört":4,dort:4,"beş":5,bes:5,altı:6,alti:6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,"on bes":15,yirmi:20,"yirmi beş":25,otuz:30,kırk:40,kirk:40,"kırk beş":45,elli:50,altmış:60,doksan:90};
@@ -177,9 +178,21 @@ function parseRem(t){
  Object.keys(NUM).sort((a,b)=>b.length-a.length).forEach(w=>{s=s.replace(new RegExp("(^|\\s)"+w+"\\s+(saniye|dakika|saat)","g"),(x,p,u)=>p+NUM[w]+" "+u)});
  let at=null,m;
  if(m=s.match(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/)){const n=+m[1],u=m[2];at=Date.now()+n*(u==="saat"?3600e3:(u==="saniye"||u==="sn")?1e3:60e3)}
- else if(m=s.match(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*(\d{1,2})(?:[:.](\d{2}))?/)){let h=+m[3];if(/akşam|aksam/.test(m[2]||"")&&h<12)h+=12;const d=new Date();d.setHours(h,+(m[4]||0),0,0);if(m[1])d.setDate(d.getDate()+1);else if(d<=Date.now())d.setDate(d.getDate()+1);at=+d}
+ else{
+  // "18:15'te", "saat 7'de", "sabah 7'de", "akşam 8:30'da", "yarın saat 9", "bugün 14.00"
+  const R=[/(yarın|bugün)?\s*(sabah|akşam|aksam|öğlen|oglen|öğleden sonra|gece)?\s*(?:saat\s*)?(\d{1,2})[:.](\d{2})(?:['’]?\s*(?:de|da|te|ta|'de|'da))?/,
+   /(yarın|bugün)?\s*(sabah|akşam|aksam|öğlen|oglen|öğleden sonra|gece)?\s*saat\s*(\d{1,2})(?:['’]?\s*(?:de|da|te|ta))?/,
+   /(yarın|bugün)?\s*(sabah|akşam|aksam|öğlen|oglen|öğleden sonra|gece)\s*(\d{1,2})(?:['’]?\s*(?:de|da|te|ta))?(?=\s|$)/];
+  for(const re of R){m=s.match(re);if(m)break}
+  if(m){let h=+m[3];const mi=m[4]!==undefined&&re4(m)?+m[4]:0;const p=m[2]||"";
+   if(h<=12&&/(akşam|aksam|gece|öğleden sonra)/.test(p)&&!(p==="gece"&&h>=10&&h===12))h=h===12?12:h+12;
+   if(p==="gece"&&h===24)h=0;
+   if(h>23||mi>59){m=null}else{
+    const d=new Date();d.setHours(h,mi,0,0);
+    if(m[1]==="yarın")d.setDate(d.getDate()+1);else if(d<=Date.now())d.setDate(d.getDate()+1);
+    at=+d;s=s.replace(m[0]," ")}}}
  if(!at)return {err:true};
- let what=s.replace(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/,"").replace(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*\d{1,2}([:.]\d{2})?('?(de|da|te|ta))?/,"").replace(/(diye\s*)?(bana\s*)?(hatırlat|hatirlat|alarm kur)\S*/,"").replace(/(ve\s+)?beni\s+(ara\S*|çaldır\S*)(\s+(ve|da|de))?/g," ").replace(/(\S+)m\s+gerektiğini/g,"$1n gerekiyor").replace(/(\S+)m\s+lazım/g,"$1n lazım").replace(/\bben(im)?\b/g,"");
+ let what=s.replace(/(\d+)\s*(saniye|sn|dakika|dk|saat)\s*(sonra|içinde|icinde)/,"").replace(/(yarın\s*)?(sabah|akşam|aksam|öğlen|oglen)?\s*saat\s*\d{1,2}([:.]\d{2})?('?(de|da|te|ta))?/,"").replace(/(diye\s*)?(bana\s*)?(hatırlat|hatirlat|alarm kur)\S*/,"").replace(/(ve\s+)?beni\s+(ara\S*|çaldır\S*)(\s+(ve|da|de))?/g," ").replace(/(\S+)m\s+gerektiğini/g,"$1n gerekiyor").replace(/(\S+)m\s+gerekiyor/g,"$1n gerekiyor").replace(/\b(hatırlatır\s*mısın|hatırlatırmısın|hatırlatsana)\b/g,"").replace(/(\S+)m\s+lazım/g,"$1n lazım").replace(/\bben(im)?\b/g,"");
  what=what.replace(/^(\s*(evet|tamam|başka bir şey var|baska bir sey var|bir şey daha|bir de|ayrıca|bunu da|şunu da|sunu da|şunu|sunu|patron|gandalf|lütfen|lutfen|var|bana)\b[,.]?)+/,"").replace(/\s+/g," ").trim();
  return {at,what:what||"Zamanı geldi"}}
 function renderRem(){const u=$("rem");u.innerHTML="";
