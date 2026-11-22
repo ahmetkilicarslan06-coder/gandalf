@@ -1199,6 +1199,8 @@ if(typeof A.tv==="function"){
   for(const w of Object.keys(NUMW).sort((a,b)=>b.length-a.length)){if(new RegExp("(^|\\s)"+w+"\\s+(kere|kez|defa|sefer|tık|tik|kademe|birim)").test(s))return NUMW[w]}
   if(/\bçok\b|iyice|epey/.test(s))return 6;if(/biraz|az\b/.test(s))return 3;return 1};
  const tvCmd=s=>{let m;
+  if(m=s.match(/ses\S*\s+(\d{1,2})\b/))return["setvol:"+m[1],"sesi "+m[1]+" yaptım"];
+  if(/(sesi geri aç|sessizden çıkar|sessizi kapat)/.test(s))return["unmute","sesi geri açtım"];
   if(/(ses\S*).*(kıs|azalt|düşür|indir)|(kıs|azalt)\S*.*ses/.test(s))return["voldown","sesi kıstım"];
   if(/(ses\S*).*(aç|artır|arttır|yükselt|açsana)|(artır|yükselt)\S*.*ses/.test(s))return["volup","sesi açtım"];
   if(/sessiz|sesi kapat|sesini kapat|sesi kes|sesini kes/.test(s))return["mute","sessize aldım"];
@@ -1209,7 +1211,9 @@ if(typeof A.tv==="function"){
   if(/ana ?sayfa|home/.test(s))return["home","ana sayfayı açtım"];
   if(/\bgeri\b/.test(s))return["back","geri tuşuna bastım"];
   if(/\b(tamam|ok|onayla)\b/.test(s))return["ok","tamama bastım"];
-  if(/(kapat|aç)/.test(s))return["power",/kapat/.test(s)?"televizyonu kapattım":"televizyonu açtım"];
+  if(/(youtube|yutup)/.test(s))return["app:youtube.leanback.v4","YouTube'u açtım"];
+  if(/netflix/.test(s))return["app:netflix","Netflix'i açtım"];
+  if(/(kapat|aç)/.test(s))return[/kapat/.test(s)?"poweroff":"poweron",/kapat/.test(s)?"televizyonu kapattım":"televizyonu açtım"];
   return null};
  const _ht=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
@@ -1225,6 +1229,9 @@ if(typeof A.tv==="function"){
    if(c){add(t,"u");const n=c[0].match(/^\d+$/)?1:times(s);
     const r=A.tv(c[0],n);if(r==="ok")window.__tvLast={c,at:Date.now()};
     if(r==="ok")tell("Tamam patron, "+(n>1?n+" kez ":"")+c[1]+".");
+    else if(r==="irok")tell("Wi-Fi'den ulaşamadım ama kızılötesiyle "+c[1]+" patron. Televizyon kapalıysa Wi-Fi çalışmaz.");
+    else if(r==="nonet")tell("Patron, bunun için televizyonu Wi-Fi ile bağlamam gerekiyor. Televizyonu bağla de.");
+    else if(r==="netfail")tell("Televizyona Wi-Fi'den ulaşamadım patron. Televizyon açık ve aynı ağda mı?");
     else if(r==="noir")tell("Patron, bu telefonda kızılötesi verici bulamadım. Televizyonu buradan kontrol edemiyorum.");
     else tell("Televizyona sinyal gönderemedim patron. Telefonun üst ucunu televizyona doğru tut.");
     return}}
@@ -1233,6 +1240,30 @@ if(typeof A.tv==="function"){
    tell(r?"Açıyorum patron: "+r+".":"Patron, "+m[1]+" adında bir uygulama bulamadım.");return}
   return _ht(t,quick)};
 }
+
+/* ---------- Televizyon: Wi-Fi bağlantısı (LG webOS) ---------- */
+if(typeof A.tvPair==="function"){
+ const td=document.createElement("div");
+ td.innerHTML=`<div class="sub nh">Televizyon (Wi-Fi ile, her odadan)</div>
+ <div class="sub" id="tvst"></div>
+ <div class="row"><input id="tvip" placeholder="TV IP adresi (boş bırak, kendim bulurum)" inputmode="decimal"><button id="tvbtn">📺 Bağla</button><button id="tvforget">Unut</button></div>`;
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(td,an);
+ const tvSt=()=>{$("tvst").textContent=A.tvNetOn()?"Bağlı: "+A.tvNetIp()+" — ses, kanal, kapatma Wi-Fi'den gider.":"Bağlı değil. Kumanda kızılötesiyle çalışır (TV'yi görmesi gerekir).";$("tvip").value=A.tvNetIp()||""};tvSt();
+ const pair=ip=>{tell(ip?"Televizyona bağlanıyorum patron.":"Televizyonu ağda arıyorum patron. Televizyon açık ve aynı Wi-Fi'de olmalı.");A.tvPair(ip||"")};
+ $("tvbtn").onclick=()=>pair($("tvip").value.trim());
+ $("tvforget").onclick=()=>{A.tvForget();tvSt();tell("Televizyon bağlantısını unuttum patron.")};
+ window.nativeTvPair=(st,v)=>{
+  if(st==="search")$("tvst").textContent="Aranıyor…";
+  else if(st==="notfound"){tvSt();tell("Patron, ağda LG televizyon bulamadım. Televizyon açık mı, telefonla aynı Wi-Fi'de mi? Bulamazsam IP adresini Ayarlar'a yazabilirsin: TV'de Ayarlar, Ağ, Wi-Fi bağlantısı bölümünde yazıyor.")}
+  else if(st==="prompt"){$("tvst").textContent="Televizyon bulundu: "+v+". Ekrandaki soruya kumandayla İzin Ver de.";say("Televizyonu buldum patron. Televizyon ekranında bir izin sorusu çıkacak, kumandayla izin ver de.")}
+  else if(st==="ok"){tvSt();tell("Bağlandım patron. Artık televizyonu evin her yerinden Wi-Fi ile kontrol edebilirim.")}
+  else{tvSt();tell("Televizyona bağlanamadım patron."+(v?" ("+v+")":"")+" Ekrandaki izin sorusunu onayladığından emin ol, sonra tekrar dene.")}};
+ const _htn=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(!pendYN&&!pendInput&&/(televizyon|\btv\b|tivi)/.test(s)&&/(bağla|eşleştir|eşle\b|tanıt|wifi|wi-fi|kablosuz)/.test(s)&&!/(sesi|kanal)/.test(s)){add(t,"u");pair(A.tvNetIp()||"");return}
+  return _htn(t,quick)};
+}
+
 
 /* ---------- Uygulama içi güncelleme ---------- */
 if(typeof A.updCheck==="function"){
@@ -1570,7 +1601,7 @@ if(typeof A.appSearch==="function"){
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
   if(pendYN||pendInput)return _ha(t,quick);
   const ap=APPS.find(([n,re])=>re.test(s));
-  if(ap&&/(bul|ara\b|arat|göster|aç|izle|dinle|çal)/.test(s)){
+  if(ap&&!/(televizyon|\btv\b|tivi)/.test(s)&&/(bul|ara\b|arat|göster|aç|izle|dinle|çal)/.test(s)){
    // aranacak şeyi çıkar
    const STOPQ=/^(uygulamasını|uygulamasında|uygulamasındaki|uygulamayı|uygulama|uygulamada|üzerinden|içinde|içinden|ve|sonra|bir|ile|lütfen|patron|gandalf|aç|açar|mısın|misin|açsana|bul|bulur|musun|ara|arat|aratır|göster|izle|izlet|dinle|dinlet|çal|çalsana|oynat|telefon|telefondaki|telefonumdaki|şunu|şu|bana)$/i;
    const q=t.split(/\s+/).filter(w=>w&&!ap[1].test(low(w))&&!STOPQ.test(low(w).replace(/[?.!,]/g,""))).map(w=>w.replace(/['’].*$/,"").replace(/[?.!,]/g,"")).filter(Boolean).join(" ");
