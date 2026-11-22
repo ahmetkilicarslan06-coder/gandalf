@@ -1605,10 +1605,10 @@ window.mapsBrief=function(arr){
  return m};
 {const _hn=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
-  if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git))/.test(s)||/(hava|haber)/.test(s))return _hn(t,quick);
-  const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar|yorumla|söyle)$/i;
+  if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git)|yol(lar)?\s*(açık|kapalı|nasıl|durumu|tıkalı|sıkışık)|yol durumu|ne kadar sürer|kaç (dakika|saat)(da|ta)? (giderim|varırım|gider|sürer|olur))/.test(s)||/(hava|haber)/.test(s))return _hn(t,quick);
+  const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar|yorumla|söyle|yollar|kapalı|tıkalı|sıkışık|ne|kadar|sürer|kaç|dakikada|saatte|dakika|saat|giderim|varırım|gider|olur|şu|an|şuan|şimdi)$/i;
   const words=t.split(/\s+/).map(w=>w.replace(/[?.!,]/g,"")).filter(w=>w&&!STOP.test(low(w)));
-  const dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"")).join(" ").trim();
+  const dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"").replace(/([aeıiuü])y[ae]$/i,"$1")).join(" ").trim();
   add(t,"u");
   if(!dest){A.openApp("Haritalar")||A.openApp("Maps");tell("Haritaları açıyorum patron.");return}
   const start=/(navigasyon|başlat|açık kalsın|götür|git)/.test(s);
