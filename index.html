@@ -107,6 +107,7 @@ summary{padding:6px 0}
 </details>
 <details id="set">
  <summary>Ayarlar ve hatırlatmalar</summary>
+ <div class="row"><input id="ck" type="password" placeholder="Claude API anahtarı (console.anthropic.com, ücretli; girilirse önce Claude cevaplar)"></div>
  <div class="row"><input id="key" type="password" placeholder="Gemini API anahtarı (birden fazlaysa virgülle ayır)"><button id="save">Kaydet</button></div>
  <div class="row"><input id="gk" type="password" placeholder="Yedek: Groq API anahtarı (console.groq.com/keys, ücretsiz)"></div>
  <div class="row phonehide"><label for="mode" class="sub">Beyin:</label><select id="mode"><option value="auto">Otomatik (önce yerel Ollama, olmazsa Gemini)</option><option value="gemini">Sadece Gemini (internet aramalı)</option><option value="local">Sadece yerel (Ollama, kotasız)</option></select></div>
@@ -157,7 +158,7 @@ function say(t,done){if(!speak||!window.speechSynthesis){if(done)setTimeout(done
  const parts=[];let cur="";for(const sn of String(t).replace(/https?:\/\/\S+/g,"link").match(/[^.!?…\n]+[.!?…]*\s*/g)||[]){if((cur+sn).length>180&&cur){parts.push(cur);cur=""}cur+=sn}if(cur.trim())parts.push(cur);
  const v=pickVoice(),vp=VPRE[vpIdx]||VPRE[0];parts.forEach((pt,i)=>{const u=new SpeechSynthesisUtterance(pt.trim());u.lang="tr-TR";u.rate=vp.r;u.pitch=vp.p;if(v)u.voice=v;
   u.onstart=()=>document.body.classList.add("talk");if(i===parts.length-1)u.onend=u.onerror=()=>{document.body.classList.remove("talk");if(done)setTimeout(done,250)};speechSynthesis.speak(u)})}
-const VPRE=[{n:"Normal",d:"telefonun kendi sesi",p:1,r:1.05},{n:"Bilge Büyücü",d:"kalın, ağır, yaşlı",p:.62,r:.9},{n:"Derin Kral",d:"çok kalın, vakur",p:.5,r:.84},{n:"Gök Gürültüsü",d:"en tok, en yavaş",p:.38,r:.8},{n:"Sakin Hoca",d:"hafif kalın, yumuşak",p:.76,r:.93},{n:"Kararlı Komutan",d:"kalın ve hızlı",p:.66,r:1.04}];
+const VPRE=[{n:"Normal",d:"telefonun kendi sesi",p:1,r:1.05},{n:"Bilge Büyücü",d:"kalın, ağır, yaşlı",p:.62,r:.9},{n:"Derin Kral",d:"çok kalın, vakur",p:.5,r:.84},{n:"Gök Gürültüsü",d:"en tok, en yavaş",p:.38,r:.8},{n:"Sakin Hoca",d:"hafif kalın, yumuşak",p:.76,r:.93},{n:"Kararlı Komutan",d:"kalın ve hızlı",p:.66,r:1.04},{n:"Ultron",d:"metalik, robotik, tehditkâr",p:.6,r:.92,fx:"ultron"},{n:"Robot",d:"klasik titreşimli robot",p:.85,r:1,fx:"robot"},{n:"Jarvis",d:"yapay zekâ, hafif yankılı",p:.95,r:1.05,fx:"jarvis"}];
 let vpIdx=store.get("g_vp",1);
 function renderVP(){const box=$("vps");if(!box)return;box.innerHTML="";VPRE.forEach((x,i)=>{const b=document.createElement("button");b.className="vpb"+(i===vpIdx?" on":"");b.setAttribute("aria-pressed",i===vpIdx);
  b.innerHTML="<b></b><small></small>";b.firstChild.textContent=(i===vpIdx?"✓ ":"")+x.n;b.lastChild.textContent=x.d;
@@ -165,7 +166,7 @@ function renderVP(){const box=$("vps");if(!box)return;box.innerHTML="";VPRE.forE
 function hush(){try{speechSynthesis.cancel()}catch(e){}document.body.classList.remove("talk")}
 
 $("spk").onclick=()=>{speak=!speak;$("spk").textContent="Ses: "+(speak?"açık":"kapalı");$("spk").setAttribute("aria-pressed",speak);if(!speak)speechSynthesis.cancel()};
-$("save").onclick=()=>{ytKey=$("yt").value.trim();store.set("g_yt",ytKey);gkey=$("gk").value.trim();store.set("g_gk",gkey);key=$("key").value.trim();modelList=null;store.set("g_key",key);add("Anahtar kaydedildi.","g")};
+$("save").onclick=()=>{ckey=$("ck").value.trim();store.set("g_ck",ckey);ytKey=$("yt").value.trim();store.set("g_yt",ytKey);gkey=$("gk").value.trim();store.set("g_gk",gkey);key=$("key").value.trim();modelList=null;store.set("g_key",key);add("Anahtar kaydedildi.","g")};
 
 /* ---- Hatırlatma ---- */
 function parseRem(t){
@@ -209,6 +210,27 @@ function lenAnswer(t){const s=t.toLocaleLowerCase("tr-TR");
  if(/(detay|ayrıntı|ayrinti|uzun|tamam[ıi]n|hepsi|geniş|derin)/.test(s))return true;
  if(/(kısa|kisa|özet|ozet|hızlı|tek cümle)/.test(s))return false;return null}
 let gkey=store.get("g_gk",""),kIdx=0;$("gk").value=gkey;
+let ckey=store.get("g_ck","");$("ck").value=ckey;
+/* Claude API: basit sorular Haiku (hızlı, ucuz), ağır işler Sonnet; güncel sorularda web araması */
+const HEAVY=/(hazırla|detaylı|ayrıntılı|karşılaştır|analiz|plan yap|yaz bana|metin yaz|mail yaz|e-?posta yaz|rapor|özetle|çevir|kod)/i;
+async function claudeAsk(q){
+ const heavy=DETAIL||HEAVY.test(q);
+ const model=heavy?"claude-sonnet-5-5":"claude-haiku-5-5";
+ let msgs=hist.map(m=>({role:m.role==="model"?"assistant":"user",content:(m.parts||[]).map(p=>p.text||"").join("")})).filter(m=>m.content);
+ while(msgs.length&&msgs[0].role!=="user")msgs.shift();
+ const merged=[];for(const m of msgs){if(merged.length&&merged[merged.length-1].role===m.role)merged[merged.length-1].content+="\n"+m.content;else merged.push({...m})}
+ const sys=SYS+" Bugünün tarihi: "+new Date().toLocaleDateString("tr-TR")+". Cevabın sesli okunacak: madde işareti, başlık, yıldız kullanma; düz ve doğal Türkçe konuş.";
+ const body={model,max_tokens:heavy?1500:600,system:sys,messages:merged};
+ const web=typeof FRESH!=="undefined"&&FRESH.test(q);
+ if(web)body.tools=[{type:"web_search_20250305",name:"web_search",max_uses:3}];
+ const call=async b=>{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":ckey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(b)});
+  const j=await r.json().catch(()=>({}));return {r,j}};
+ let {r,j}=await call(body);
+ if(!r.ok&&web&&r.status===400){delete body.tools;({r,j}=await call(body))}
+ if(!r.ok){const m=j.error?.message||("Claude hatası "+r.status);const e=new Error(r.status===401?"Claude anahtarı geçersiz.":/credit|balance/i.test(m)?"Claude kredisi bitmiş.":m);e.status=r.status;throw e}
+ const txt=(j.content||[]).filter(x=>x.type==="text").map(x=>x.text).join(" ").replace(/[*#]+/g,"").replace(/\s+\n/g,"\n").trim();
+ const src=[];(j.content||[]).forEach(x=>{if(x.type==="web_search_tool_result"&&Array.isArray(x.content))x.content.slice(0,3).forEach(s=>{if(s.url)src.push({uri:s.url,title:s.title||s.url})})});
+ return {txt,src,model}}
 const allKeys=()=>String(store.get("g_key","")||key||"").split(/[\s,;]+/).filter(Boolean);
 async function groqAsk(){
  const msgs=[{role:"system",content:SYS+" Bugünün tarihi: "+new Date().toLocaleDateString("tr-TR")},...hist.map(m=>({role:m.role==="model"?"assistant":"user",content:(m.parts||[]).map(p=>p.text||"").join("")}))];
@@ -327,6 +349,8 @@ async function ask(q,forceLong){
   const tryLocal=async()=>{prog("Yerel model düşünüyor… (ilk cevap yavaş olabilir)");try{txt=await localAsk(t=>{w.textContent=t;$("cap").textContent=t})}catch(e){lerr=e}};
   const tryGemini=async()=>{
    if(window.localOnly&&window.localOnly()&&window.localBrain){prog("Telefondaki model düşünüyor…");try{txt=await window.localBrain()||"";gerr=null;if(!txt)gerr=new Error("Telefondaki model henüz indirilmemiş. Ayarlar'dan indir.")}catch(e){gerr=e}return}
+   if(!txt&&ckey){prog("Claude düşünüyor…");
+    try{const cr=await claudeAsk(q);if(cr.txt){txt=cr.txt;src=cr.src;gerr=null}}catch(e){gerr=e;if(!window.__cWarned&&(e.status===401||/kredi/.test(e.message))){window.__cWarned=1;add(e.message+" Ücretsiz servislere geçiyorum.","g")}}}
    if(!txt&&window.googleBrain&&store.get("g_google",true)){prog("Google'a soruyorum…");
     try{const g=await window.googleBrain(q);
      if(g.st==="ok"&&g.t){txt=g.t.replace(/[*#]+/g,"").replace(/\n+/g,". ").replace(/\.\s*\./g,".");src=[{uri:"https://www.google.com/search?q="+encodeURIComponent(q),title:"Google AI Bakışı"}]}
@@ -754,6 +778,7 @@ say=function(t,done){
  if(!speak){if(done)setTimeout(done,300);return}
  sayDone=done||null;document.body.classList.add("talk");
  const vp=VPRE[vpIdx]||VPRE[0];
+ if(A.setFx)A.setFx(vp.fx||"");
  A.speak(String(t).replace(/https?:\/\/\S+/g,"link"),vp.p,vp.r)};
 window.nativeSpeakDone=function(){document.body.classList.remove("talk");const d=sayDone;sayDone=null;if(d)setTimeout(d,150)};
 hush=function(){sayDone=null;A.stopSpeak();document.body.classList.remove("talk")};
