@@ -1588,17 +1588,45 @@ if(typeof A.appSearch==="function"){
 
 
 /* ---------- Haritalar: navigasyon / trafik ---------- */
+window.mapsBrief=function(arr){
+ const T=arr.map(x=>String(x));const DUR=/(\d+\s*sa(?:at)?\.?\s*)?\d+\s*dk\.?/i;
+ const mins=d=>{const h=d.match(/(\d+)\s*sa/i),m=d.match(/(\d+)\s*dk/i);return (h?+h[1]*60:0)+(m?+m[1]:0)};
+ const say1=d=>{const h=Math.floor(mins(d)/60),m=mins(d)%60;return (h?h+" saat ":"")+(m?m+" dakika":"").trim()};
+ const durs=[];for(const x of T){if(x.length>40)continue;const m=x.match(DUR);if(m&&!/(önce|sonra|yürü|toplu|otobüs|tren)/i.test(x)){const d=m[0].trim();if(!durs.some(o=>mins(o)===mins(d)))durs.push(d)}}
+ durs.sort((a,b)=>mins(a)-mins(b));
+ const km=(T.find(x=>/\(\s*[\d.,]+\s*km\s*\)/.test(x))||"").match(/[\d.,]+\s*km/);
+ const notes=[...new Set(T.filter(x=>/(kaza|çarpışma|yol çalışma|çalışması|kapalı|trafik|yoğun|gecikme|tıkanık|kısıtlama|en hızlı|her zamanki|daha yavaş|dk\.? daha|dakika daha)/i.test(x)&&x.length<160&&!/^(trafik|katmanlar)$/i.test(x)).map(x=>x.replace(/\s*\|\s*/g," ").trim()))].slice(0,6);
+ const TI=T.filter(x=>!/(etkilenmeyen|kaçın)/i.test(x));const inc=[];if(TI.some(x=>/(kaza|çarpışma|crash)/i.test(x)))inc.push("rotada kaza bildirimi");if(TI.some(x=>/(yol çalışma|çalışması|roadwork|construction)/i.test(x)))inc.push("yol çalışması");if(TI.some(x=>/(kapalı yol|yol kapalı|kapanış)/i.test(x)))inc.push("kapalı yol");
+ if(!durs.length)return "";
+ let m=durs.length>1?"Patron, "+durs.length+" güzergah var. En hızlısı "+say1(durs[0])+(km?", "+km[0].replace("km","kilometre"):"")+". Diğerleri "+durs.slice(1).map(say1).join(" ve ")+". ":"Patron, rota "+say1(durs[0])+(km?", "+km[0].replace("km","kilometre"):"")+" görünüyor. ";
+ if(durs.length>1)m+="En hızlıyla en yavaş arasında "+(mins(durs[durs.length-1])-mins(durs[0]))+" dakika fark var. ";
+ if(inc.length)m+="Haritada "+inc.join(", ")+" işareti görüyorum. ";
+ const n=notes.filter(x=>x.length>14&&(!DUR.test(x)||x.length>25));if(n.length)m+="Haritalar'ın notu: "+n.slice(0,2).join(". ")+". ";
+ return m};
 {const _hn=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
   if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git))/.test(s)||/(hava|haber)/.test(s))return _hn(t,quick);
-  const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar)$/i;
+  const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar|yorumla|söyle)$/i;
   const words=t.split(/\s+/).map(w=>w.replace(/[?.!,]/g,"")).filter(w=>w&&!STOP.test(low(w)));
   const dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"")).join(" ").trim();
   add(t,"u");
   if(!dest){A.openApp("Haritalar")||A.openApp("Maps");tell("Haritaları açıyorum patron.");return}
-  const url="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(dest)+"&travelmode=driving&dir_action=navigate";
-  say("Patron, "+dest+" için navigasyonu açıyorum. Trafik durumu rotada renkli görünür, tahmini süreyi Haritalar söyleyecek.",()=>{});
-  setTimeout(()=>A.openUrl(url),1500);return};
+  const start=/(navigasyon|başlat|açık kalsın|götür|git)/.test(s);
+  A.openUrl("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(dest)+"&travelmode=driving");
+  setSt("Rotalara bakıyorum…");
+  if(typeof A.screenTexts!=="function"||!A.waAutoOk()){setSt("");say("Patron, "+dest+" rotasını açtım. Yorumlamam için Erişilebilirlik izni ve son sürüm gerekiyor.");return}
+  let brief="";
+  for(let i=0;i<8&&!brief;i++){await new Promise(r=>setTimeout(r,2000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}brief=mapsBrief(a)}
+  setSt("");
+  if(!brief){say("Patron, "+dest+" rotasını açtım ama süreleri ekrandan okuyamadım.");return}
+  add(brief,"g");
+  say(brief+(start?"En hızlı rotayla navigasyonu başlatıyorum.":"Başlatmamı istersen navigasyonu başlat de."),()=>{if(start)setTimeout(()=>A.tapText("Başla|Start"),500)});
+  if(!start){window.__mapsStart=Date.now()}
+ };
+ const _hs=handle;
+ handle=async function(t,quick){const s=low(String(t||""));
+  if(window.__mapsStart&&Date.now()-window.__mapsStart<300000&&/^(navigasyonu )?(başlat|başla|yola çık|tamam başlat)/.test(s.trim())){window.__mapsStart=0;add(t,"u");A.openApp("Haritalar");setTimeout(()=>A.tapText("Başla|Start"),1500);tell("Başlatıyorum patron, iyi yolculuklar.");return}
+  return _hs(t,quick)};
 }
 
 
