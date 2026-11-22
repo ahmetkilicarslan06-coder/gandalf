@@ -107,7 +107,8 @@ summary{padding:6px 0}
 </details>
 <details id="set">
  <summary>Ayarlar ve hatırlatmalar</summary>
- <div class="row"><input id="ck" type="password" placeholder="Claude API anahtarı (console.anthropic.com, ücretli; girilirse önce Claude cevaplar)"></div>
+ <div class="row"><label for="brain" class="sub">Cevapları kim versin:</label><select id="brain"><option value="free">Ücretsiz servisler (Google, Gemini, Groq)</option><option value="claude">Claude (ücretli, anahtar gerekir)</option></select></div>
+ <div class="row"><input id="ck" type="password" placeholder="Claude API anahtarı (sadece Claude seçiliyse kullanılır)"></div>
  <div class="row"><input id="key" type="password" placeholder="Gemini API anahtarı (birden fazlaysa virgülle ayır)"><button id="save">Kaydet</button></div>
  <div class="row"><input id="gk" type="password" placeholder="Yedek: Groq API anahtarı (console.groq.com/keys, ücretsiz)"></div>
  <div class="row phonehide"><label for="mode" class="sub">Beyin:</label><select id="mode"><option value="auto">Otomatik (önce yerel Ollama, olmazsa Gemini)</option><option value="gemini">Sadece Gemini (internet aramalı)</option><option value="local">Sadece yerel (Ollama, kotasız)</option></select></div>
@@ -211,6 +212,11 @@ function lenAnswer(t){const s=t.toLocaleLowerCase("tr-TR");
  if(/(kısa|kisa|özet|ozet|hızlı|tek cümle)/.test(s))return false;return null}
 let gkey=store.get("g_gk",""),kIdx=0;$("gk").value=gkey;
 let ckey=store.get("g_ck","");$("ck").value=ckey;
+let brain=store.get("g_brain","free");$("brain").value=brain;
+$("brain").onchange=()=>{brain=$("brain").value;store.set("g_brain",brain);
+ if(brain==="claude"&&!($("ck").value.trim()||ckey))add("Claude için önce anahtarı girip Kaydet'e bas patron. Anahtar yoksa ücretsiz servislerle devam ederim.","g");
+ else add(brain==="claude"?"Tamam patron, sorulara artık Claude cevap verecek.":"Tamam patron, ücretsiz servislere döndüm.","g")};
+const useClaude=()=>brain==="claude"&&!!ckey;
 /* Claude API: basit sorular Haiku (hızlı, ucuz), ağır işler Sonnet; güncel sorularda web araması */
 const HEAVY=/(hazırla|detaylı|ayrıntılı|karşılaştır|analiz|plan yap|yaz bana|metin yaz|mail yaz|e-?posta yaz|rapor|özetle|çevir|kod)/i;
 async function claudeAsk(q){
@@ -349,7 +355,7 @@ async function ask(q,forceLong){
   const tryLocal=async()=>{prog("Yerel model düşünüyor… (ilk cevap yavaş olabilir)");try{txt=await localAsk(t=>{w.textContent=t;$("cap").textContent=t})}catch(e){lerr=e}};
   const tryGemini=async()=>{
    if(window.localOnly&&window.localOnly()&&window.localBrain){prog("Telefondaki model düşünüyor…");try{txt=await window.localBrain()||"";gerr=null;if(!txt)gerr=new Error("Telefondaki model henüz indirilmemiş. Ayarlar'dan indir.")}catch(e){gerr=e}return}
-   if(!txt&&ckey){prog("Claude düşünüyor…");
+   if(!txt&&useClaude()){prog("Claude düşünüyor…");
     try{const cr=await claudeAsk(q);if(cr.txt){txt=cr.txt;src=cr.src;gerr=null}}catch(e){gerr=e;if(!window.__cWarned&&(e.status===401||/kredi/.test(e.message))){window.__cWarned=1;add(e.message+" Ücretsiz servislere geçiyorum.","g")}}}
    if(!txt&&window.googleBrain&&store.get("g_google",true)){prog("Google'a soruyorum…");
     try{const g=await window.googleBrain(q);
@@ -1548,6 +1554,17 @@ if(typeof A.appSearch==="function"){
    return}
   return _ha(t,quick)};
 }
+
+
+/* ---------- Sesle beyin seçimi ---------- */
+{const _hb=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(/(claude|klod|klot)/.test(s)&&/(kullan|geç|aç|seç|devreye)/.test(s)&&!/(kapat|bırak)/.test(s)){add(t,"u");
+   if(!ckey){tell("Patron, Claude için Ayarlar'a anahtar girmen gerekiyor. Anahtar yoksa ücretsiz servislerle devam ederim.");return}
+   brain="claude";store.set("g_brain",brain);$("brain").value=brain;tell("Tamam patron, sorulara artık Claude cevap verecek.");return}
+  if((/(claude|klod|klot)/.test(s)&&/(kapat|bırak|kullanma)/.test(s))||/(ücretsiz moda|ücretsiz servis)/.test(s)){add(t,"u");
+   brain="free";store.set("g_brain",brain);$("brain").value=brain;tell("Tamam patron, ücretsiz servislere döndüm.");return}
+  return _hb(t,quick)};}
 
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
