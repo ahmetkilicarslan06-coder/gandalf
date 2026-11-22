@@ -1587,6 +1587,21 @@ if(typeof A.appSearch==="function"){
 }
 
 
+/* ---------- Haritalar: navigasyon / trafik ---------- */
+{const _hn=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git))/.test(s)||/(hava|haber)/.test(s))return _hn(t,quick);
+  const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar)$/i;
+  const words=t.split(/\s+/).map(w=>w.replace(/[?.!,]/g,"")).filter(w=>w&&!STOP.test(low(w)));
+  const dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"")).join(" ").trim();
+  add(t,"u");
+  if(!dest){A.openApp("Haritalar")||A.openApp("Maps");tell("Haritaları açıyorum patron.");return}
+  const url="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(dest)+"&travelmode=driving&dir_action=navigate";
+  say("Patron, "+dest+" için navigasyonu açıyorum. Trafik durumu rotada renkli görünür, tahmini süreyi Haritalar söyleyecek.",()=>{});
+  setTimeout(()=>A.openUrl(url),1500);return};
+}
+
+
 /* ---------- Sesle beyin seçimi ---------- */
 {const _hb=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
