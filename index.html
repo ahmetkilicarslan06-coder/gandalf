@@ -2177,6 +2177,7 @@ if(typeof A.media2==="function"){
   const r=await new Promise(ok=>{yw[id]=ok;A.ytPlay(id,q);setTimeout(()=>{if(yw[id]){delete yw[id];ok("timeout")}},15000)});setSt("");
   window.__ytAt=Date.now();
   if(r==="ok"){const m="Tamam patron, YouTube'da çalıyorum: "+q;add(m,"g");say("Tamam patron, çalıyorum.")}
+  else if(r==="searchtap"){add("YouTube'da aradım, ilk uygun videoyu açıyorum: "+q,"g");say("Tamam patron, açıyorum.")}
   else if(r==="search"){add("İlk videoyu bulamadım, YouTube'da aramayı açtım: "+q,"g");say("İlk videoyu bulamadım patron, aramayı açtım.")}
   else{add("YouTube'u açamadım patron.","g");say("YouTube'u açamadım patron.")}};
  const NW={bir:1,iki:2,"üç":3,"dört":4,"beş":5,"altı":6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,yirmi:20,otuz:30,"kırk":40,"kırk beş":45,elli:50,"altmış":60,doksan:90};
