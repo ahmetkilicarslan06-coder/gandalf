@@ -1636,14 +1636,29 @@ window.mapsBrief=function(arr){
  return m};
 {const _hn=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
-  if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git)|yol(lar)?\s*(açık|kapalı|nasıl|durumu|tıkalı|sıkışık)|yol durumu|ne kadar sürer|kaç (dakika|saat)(da|ta)? (giderim|varırım|gider|sürer|olur)|\S+(y?[ae]|['’][ae]) kaç (dakika|saat)\s*\??$|ne kadar uzak|mesafe|kaç (km|kilometre))/.test(s)||/(hava|haber)/.test(s))return _hn(t,quick);
+  if(pendYN||pendInput||!/(navigasyon|yol tarifi|güzergah|trafik|haritalar|google maps|\bmaps\b|beni .{2,40}(götür|e git|a git)|yol(lar)?\s*(açık|kapalı|nasıl|durumu|tıkalı|sıkışık)|yol durumu|ne kadar sürer|kaç (dakika|saat)(da|ta)? (giderim|varırım|gider|sürer|olur)|\S+(y?[ae]|['’][ae]) kaç (dakika|saat)\s*\??$|ne kadar uzak|mesafe|kaç (km|kilometre)|(^|\s)(eve|evime|evimize)\s.*(varış|ne kadar|kaç|götür|git|gid|yol|dön|var[ıi]r)|eve (varış|dönüş)|(bizi|beni) eve|eve götür)/.test(s)||/(hava|haber|hatırlat|alarm|mesaj|whatsapp)/.test(s))return _hn(t,quick);
   const STOP=/^(google|haritalar|haritaları|haritalarda|haritalardan|maps|uygulaması|uygulamasında|uygulamasını|uygulamayı|uygulamada|navigasyon|navigasyonu|navigasyonda|açık|kalsın|kalsin|aç|açar|mısın|misin|başlat|yol|tarifi|tarifini|güzergahında|güzergahı|güzergahta|güzergah|trafik|trafiği|trafikte|var|varmı|mı|mi|nasıl|durumu|beni|götür|git|gidelim|lütfen|patron|gandalf|ve|bir|bak|bakar|göster|için|ile|kadar|yorumla|söyle|yollar|kapalı|tıkalı|sıkışık|ne|kadar|sürer|kaç|dakikada|saatte|dakika|saat|giderim|varırım|gider|olur|şu|an|şuan|şimdi|uzak|uzakta|mesafe|mesafesi|km|kilometre|arası)$/i;
   const words=t.split(/\s+/).map(w=>w.replace(/[?.!,]/g,"")).filter(w=>w&&!STOP.test(low(w)));
-  const dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"").replace(/([aeıiuü])y[ae]$/i,"$1")).join(" ").trim();
+  let dest=words.map(w=>w.replace(/['’](a|e|ya|ye|na|ne)$/i,"").replace(/([aeıiuü])y[ae]$/i,"$1")).join(" ").trim();
   add(t,"u");
-  if(!dest){A.openApp("Haritalar")||A.openApp("Maps");tell("Haritaları açıyorum patron.");return}
+  const home=/(^|\s)(ev|eve|evim|evime|evimize|evimiz)(\s|$|[?.!,])/.test(s);
+  if(home&&typeof A.screenTexts==="function"&&A.waAutoOk()){
+   A.openApp("Haritalar")||A.openApp("Maps");setSt("Haritalar'da Ev'e bakıyorum…");
+   let chip="";
+   for(let i=0;i<8&&!chip;i++){await new Promise(r=>setTimeout(r,1000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}
+    chip=a.find(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()))||""}
+   setSt("");
+   if(!chip){say("Patron, Haritalar'da kayıtlı Ev adresini göremedim. Haritalar'da Ev adresini kaydetmen gerekiyor.");return}
+   const dm=chip.match(/[·•]\s*(.+)$/);
+   if(dm)say("Patron, eve şu an "+dm[1].replace(/sa\.?/,"saat").replace(/dk\.?/,"dakika")+" sürüyor. Rotalara bakıyorum.");
+   await new Promise(r=>setTimeout(r,800));
+   if(!A.tapText(chip+"|Ev|Home")){say("Ev düğmesine basamadım patron.");return}
+   window.__navDest="Ev";
+  }
+  if(!dest&&!home){A.openApp("Haritalar")||A.openApp("Maps");tell("Haritaları açıyorum patron.");return}
   const start=/(navigasyon|başlat|açık kalsın|götür|git)/.test(s);
-  A.openUrl("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(dest)+"&travelmode=driving");
+  if(window.__navDest==="Ev"){window.__navDest="";dest="Ev"}else if(home){say("Patron, eve rota için Erişilebilirlik izni gerekiyor.");return}
+  else A.openUrl("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(dest)+"&travelmode=driving");
   setSt("Rotalara bakıyorum…");
   if(typeof A.screenTexts!=="function"||!A.waAutoOk()){setSt("");say("Patron, "+dest+" rotasını açtım. Yorumlamam için Erişilebilirlik izni ve son sürüm gerekiyor.");return}
   let brief="";
