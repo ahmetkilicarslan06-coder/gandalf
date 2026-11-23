@@ -31,7 +31,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--cy);outline-off
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes sweep{from{top:-30%}to{top:100%}}
 body.talk .portrait{filter:drop-shadow(0 0 40px rgba(70,190,255,.85))}
-body.lk-ultron .portrait{filter:drop-shadow(0 0 34px rgba(255,40,40,.6))}body.lk-ultron.talk .portrait{filter:drop-shadow(0 0 48px rgba(255,50,30,.95))}body.lk-orion .portrait{filter:drop-shadow(0 0 30px rgba(150,120,255,.5))}
+body.lk-ultron .portrait{filter:drop-shadow(0 0 34px rgba(255,40,40,.6))}body.lk-ultron.talk .portrait{filter:drop-shadow(0 0 48px rgba(255,50,30,.95))}body.lk-orion .portrait{filter:drop-shadow(0 0 30px rgba(150,120,255,.5))}body.lk-astral .portrait{filter:drop-shadow(0 0 34px rgba(190,225,255,.55))}
+#lks{display:flex;gap:12px;overflow-x:auto;padding:22px 4px 10px;scroll-snap-type:x mandatory}
+.cart{flex:0 0 112px;scroll-snap-align:start;background:#16181d;border:2px solid #2b2f37;border-left:5px solid var(--c);border-right:5px solid var(--c);border-radius:12px 12px 6px 6px;padding:8px 7px 7px;color:#ddd;text-align:center;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative}
+.cart .lbl{background:#eef0f2;color:#111;font:800 13px/1.1 ui-monospace,monospace;letter-spacing:1.5px;padding:7px 2px;border-radius:3px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cart svg{display:block;width:100%;height:86px;margin-top:6px;border-radius:3px}
+.cart .pins{display:flex;gap:3px;margin-top:7px}.cart .pins i{flex:1;height:13px;background:linear-gradient(#f2dc8f,#b48a2a);border-radius:1px}
+.cart .ds{font-size:11px;line-height:1.25;color:#9aa;margin-top:6px;min-height:28px}
+.cart.on{transform:translateY(-8px);border-color:var(--c);box-shadow:0 0 22px var(--c)}
+.cart.on::after{content:"TAKILI";position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--c);color:#fff;font:800 9px/1 sans-serif;letter-spacing:1px;padding:4px 7px;border-radius:8px}
 body.think .portrait{filter:drop-shadow(0 0 34px rgba(150,120,255,.7))}
 body:has(#mic.on) .portrait{filter:drop-shadow(0 0 34px rgba(120,240,255,.7))}
 #wave{width:min(90vw,420px);height:auto}
@@ -780,12 +788,12 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
 (()=>{const face=document.querySelector(".face");if(!face)return;
  const cv=document.createElement("canvas");cv.id="av";cv.width=cv.height=960;cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:none";
  face.insertBefore(cv,face.querySelector(".scan"));const g=cv.getContext("2d"),S=960,C=480;
- const LOOKS=[{k:"auto",n:"Otomatik",d:"seçtiğin sese göre"},{k:"gandalf",n:"Gandalf",d:"bilge büyücü portresi"},{k:"jarvis",n:"Jarvis",d:"mavi dönen ışık halkaları"},{k:"ultron",n:"Ultron",d:"kırmızı, sivri, tehditkâr"},{k:"robot",n:"Robot",d:"hologram insan figürü"},{k:"orion",n:"Orion",d:"parlayan takımyıldızı"}];
+ const LOOKS=[{k:"auto",n:"Otomatik",d:"seçtiğin sese göre",c:"#d4a017"},{k:"gandalf",n:"Gandalf",d:"bilge büyücü portresi",c:"#5b7fa8"},{k:"jarvis",n:"Jarvis",d:"mavi dönen ışık halkaları",c:"#1e88ff"},{k:"ultron",n:"Kızıl Maske",d:"kırmızı ışıklı yapay zekâ maskesi",c:"#c8142c"},{k:"robot",n:"Robot",d:"hologram insan figürü",c:"#0fb5c8"},{k:"orion",n:"Orion",d:"parlayan takımyıldızı",c:"#6b4dff"},{k:"astral",n:"Astral",d:"yıldız tozundan ışık insan",c:"#9fd2ff"}];
  const get=()=>{try{return localStorage.getItem("g_look")||"auto"}catch(e){return "auto"}};
  const cur=()=>{let k=get();if(k==="auto"){let fx="";try{fx=(VPRE[vpIdx]||{}).fx||""}catch(e){}k=fx==="jarvis"?"jarvis":fx==="ultron"?"ultron":fx==="robot"?"robot":"gandalf"}return k};
  let look="";const apply=()=>{const k=cur();if(k===look)return;look=k;window.__look=k;
   $("gf").style.display=k==="gandalf"?"":"none";cv.style.display=k==="gandalf"?"none":"block";
-  document.body.classList.remove("lk-jarvis","lk-ultron","lk-robot","lk-orion","lk-gandalf");document.body.classList.add("lk-"+k)};
+  document.body.classList.remove("lk-jarvis","lk-ultron","lk-robot","lk-orion","lk-gandalf","lk-astral");document.body.classList.add("lk-"+k)};
  // ortak: parçacıklar
  const P=Array.from({length:70},()=>({a:Math.random()*6.28,r:120+Math.random()*300,v:(Math.random()-.5)*.6,p:Math.random()*6.28,s:.8+Math.random()*2}));
  function orb(t,k,hue,spiky){
@@ -857,20 +865,91 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
   ST.forEach((s,i)=>{const r=s[2]*(1+k*.6)+Math.sin(t*3+i)*1.2;const sg=g.createRadialGradient(s[0],s[1],0,s[0],s[1],r*7);sg.addColorStop(0,i===1?"rgba(255,170,120,1)":"rgba(190,225,255,1)");sg.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=sg;g.beginPath();g.arc(s[0],s[1],r*7,0,6.28);g.fill()});
   g.shadowBlur=0;g.lineWidth=2;g.strokeStyle="rgba(120,180,255,"+(.15+k*.3)+")";g.beginPath();g.arc(480,470,400,t*.2,t*.2+4);g.stroke();
   g.globalCompositeOperation="source-over"}
+ // Kızıl Maske: özgün kırmızı yapay zekâ maskesi (yatay vizör, altıgen paneller, ses dalgası)
+ function mask(t,k){
+  g.fillStyle="#070103";g.fillRect(0,0,S,S);
+  const hz=g.createRadialGradient(C,420,0,C,420,470);hz.addColorStop(0,"rgba(120,0,10,.55)");hz.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=hz;g.fillRect(0,0,S,S);
+  const col=a=>"rgba(255,40,50,"+a+")",hot=a=>"rgba(255,170,150,"+a+")";
+  // kafa: yuvarlatılmış altıgen kask
+  const H=new Path2D();H.moveTo(480,150);H.lineTo(640,230);H.quadraticCurveTo(668,330,650,450);H.lineTo(600,610);H.quadraticCurveTo(480,690,360,610);H.lineTo(310,450);H.quadraticCurveTo(292,330,320,230);H.closePath();
+  const mg=g.createLinearGradient(320,150,640,650);mg.addColorStop(0,"#2a0a0e");mg.addColorStop(.5,"#13040a");mg.addColorStop(1,"#30060c");g.fillStyle=mg;g.fill(H);
+  g.globalCompositeOperation="lighter";g.shadowColor="#ff2233";g.shadowBlur=22+k*20;g.strokeStyle=col(.9);g.lineWidth=4;g.stroke(H);
+  // altıgen panel çizgileri
+  g.save();g.clip(H);g.lineWidth=1.4;g.shadowBlur=6;
+  for(let y=170;y<680;y+=46)for(let x=300;x<680;x+=54){const ox=x+((y/46|0)%2)*27;g.strokeStyle=col(.10+.12*Math.max(0,Math.sin(t*2+ox*.02+y*.03)));g.beginPath();for(let i=0;i<6;i++){const a=i*Math.PI/3+Math.PI/6;g.lineTo(ox+Math.cos(a)*24,y+Math.sin(a)*24)}g.closePath();g.stroke()}
+  g.restore();
+  // vizör: yatay ışık bandı
+  const V=new Path2D();V.moveTo(340,360);V.quadraticCurveTo(480,330,620,360);V.lineTo(606,412);V.quadraticCurveTo(480,392,354,412);V.closePath();
+  g.shadowBlur=30+k*30;g.fillStyle=col(.35+k*.3);g.fill(V);g.strokeStyle=hot(.9);g.lineWidth=2.5;g.stroke(V);
+  // vizörde kayan ışık
+  const sx=360+((t*220)%260);const vg=g.createLinearGradient(sx-40,0,sx+40,0);vg.addColorStop(0,col(0));vg.addColorStop(.5,hot(.9));vg.addColorStop(1,col(0));g.save();g.clip(V);g.fillStyle=vg;g.fillRect(sx-40,320,80,100);g.restore();
+  // yan havalandırmalar ve çene ızgarası
+  g.shadowBlur=10;g.lineWidth=3;g.strokeStyle=col(.7);
+  for(const sgn of [-1,1])for(let i=0;i<4;i++){g.beginPath();g.moveTo(480+sgn*(150+i*4),470+i*26);g.lineTo(480+sgn*(110+i*2),476+i*26);g.stroke()}
+  for(let i=0;i<5;i++){const w=60-i*8;g.strokeStyle=col(.35+.5*k*Math.abs(Math.sin(t*14+i)));g.beginPath();g.moveTo(480-w,560+i*14);g.lineTo(480+w,560+i*14);g.stroke()}
+  // alın çekirdeği
+  const cg=g.createRadialGradient(480,262,0,480,262,30+k*20);cg.addColorStop(0,hot(1));cg.addColorStop(1,col(0));g.fillStyle=cg;g.beginPath();g.arc(480,262,30+k*20,0,6.28);g.fill();
+  // ses dalgası
+  g.shadowBlur=14;g.lineWidth=3;g.strokeStyle=col(.85);g.beginPath();
+  for(let x=200;x<=760;x+=6){const e=Math.exp(-Math.pow((x-480)/170,2));const y=760+Math.sin(x*.06+t*8)*e*(8+k*60)*Math.sin(x*.013+t*3);x===200?g.moveTo(x,y):g.lineTo(x,y)}g.stroke();
+  // kıvılcımlar
+  g.shadowBlur=0;for(const q of P){q.a+=q.v*.008;const x=C+Math.cos(q.a)*(q.r+60),y=C+Math.sin(q.a)*(q.r+60);g.fillStyle=col(Math.max(0,.2+.5*Math.sin(t*4+q.p)).toFixed(2));g.fillRect(x,y,q.s,q.s)}
+  g.globalCompositeOperation="source-over"}
+ // Astral: yıldız tozundan ışık insan (büst)
+ const AS=Array.from({length:260},()=>({u:Math.random(),v:Math.random(),p:Math.random()*6.28,s:.6+Math.random()*1.8}));
+ const FL=Array.from({length:14},(_,i)=>({o:i/14,p:Math.random()*6.28}));
+ function astral(t,k){
+  g.fillStyle="#01030a";g.fillRect(0,0,S,S);
+  const bh=g.createRadialGradient(470,420,0,470,420,460);bh.addColorStop(0,"rgba(60,110,200,.35)");bh.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=bh;g.fillRect(0,0,S,S);
+  const W=a=>"rgba(200,228,255,"+a+")";
+  // büst silueti: baş, boyun, omuzlar ve örtü
+  const B=new Path2D();
+  B.moveTo(470,150);B.bezierCurveTo(560,150,600,220,592,300);B.bezierCurveTo(588,350,570,392,545,420);B.lineTo(548,470);
+  B.bezierCurveTo(640,490,760,540,800,640);B.lineTo(820,900);B.lineTo(140,900);B.lineTo(160,640);
+  B.bezierCurveTo(200,540,320,490,400,470);B.lineTo(402,420);B.bezierCurveTo(372,392,352,350,350,300);B.bezierCurveTo(345,220,380,150,470,150);B.closePath();
+  const fg=g.createLinearGradient(0,150,0,900);fg.addColorStop(0,"rgba(40,70,130,.55)");fg.addColorStop(1,"rgba(20,40,90,.35)");g.fillStyle=fg;g.fill(B);
+  g.globalCompositeOperation="lighter";g.shadowColor="#bfe0ff";g.shadowBlur=22+k*18;g.strokeStyle=W(.85);g.lineWidth=3;g.stroke(B);
+  // saç kütlesi
+  const HR=new Path2D();HR.moveTo(352,300);HR.bezierCurveTo(320,200,380,120,480,118);HR.bezierCurveTo(580,116,640,170,620,250);HR.bezierCurveTo(600,220,560,200,520,214);HR.bezierCurveTo(470,200,420,230,400,300);HR.bezierCurveTo(392,340,372,380,360,400);HR.bezierCurveTo(340,370,350,330,352,300);HR.closePath();
+  const hg=g.createLinearGradient(0,110,0,400);hg.addColorStop(0,W(.55));hg.addColorStop(1,W(.12));g.fillStyle=hg;g.fill(HR);g.strokeStyle=W(.8);g.lineWidth=2;g.stroke(HR);
+  // saç dalgaları
+  g.lineWidth=2;g.shadowBlur=10;
+  for(let i=0;i<12;i++){const sw=Math.sin(t*1.3+i*.7)*5;g.strokeStyle=W(.35+.3*Math.sin(t+i));g.beginPath();g.moveTo(360+i*4,380-i*18);g.bezierCurveTo(380+i*10+sw,250-i*6,450+i*12,150+sw,560+i*5,140+i*9);g.stroke()}
+  for(let i=0;i<9;i++){const sw=Math.sin(t*1.2+i)*6;g.strokeStyle=W(.25+.25*Math.sin(t+i));g.beginPath();g.moveTo(380+i*22,170+Math.abs(4-i)*6);g.bezierCurveTo(400+i*20+sw,140,470+i*14,130+sw,560+i*6,190+i*10);g.stroke()}
+  // örtü kıvrımları
+  g.save();g.clip(B);
+  for(const f of FL){g.strokeStyle=W(.18+.2*Math.sin(t*1.5+f.p)+k*.2);g.lineWidth=1.6;g.beginPath();const y0=480+f.o*400;
+   g.moveTo(150,y0+40);g.bezierCurveTo(330,y0-60+Math.sin(t+f.p)*20,560,y0+90,820,y0-20+Math.cos(t+f.p)*20);g.stroke()}
+  // yıldız tozu
+  for(const a of AS){const x=140+a.u*680,y=150+a.v*750;if(!g.isPointInPath(B,x,y))continue;const al=Math.max(0,.25+.7*Math.sin(t*3+a.p))*(.7+k*.6);g.fillStyle=W(al.toFixed(2));g.beginPath();g.arc(x,y,a.s,0,6.28);g.fill()}
+  g.restore();
+  // yüz hatları (profil, gözler kapalı)
+  g.shadowBlur=12;g.strokeStyle=W(.7);g.lineWidth=2.2;
+  g.beginPath();g.moveTo(590,300);g.quadraticCurveTo(604,318,596,336);g.lineTo(588,350);g.quadraticCurveTo(596,360,586,372);g.quadraticCurveTo(570,392,545,402);g.stroke();
+  g.beginPath();g.moveTo(520,282);g.quadraticCurveTo(540,290,558,284);g.stroke();
+  // göğüste ışık
+  const hc=g.createRadialGradient(470,600,0,470,600,120+k*80);hc.addColorStop(0,W(.45+k*.4));hc.addColorStop(1,W(0));g.fillStyle=hc;g.beginPath();g.arc(470,600,200,0,6.28);g.fill();
+  g.shadowBlur=0;g.globalCompositeOperation="source-over"}
  let tg=0,kk=0,nx=0;
  function loop(ts){apply();
   if(look!=="gandalf"){const talk=document.body.classList.contains("talk");if(talk){if(ts>nx){tg=Math.random()<.2?.1:.4+Math.random()*.6;nx=ts+80+Math.random()*110}}else tg=0;kk+=(tg-kk)*.3;
    const t=ts/1000;g.clearRect(0,0,S,S);
-   if(look==="jarvis")orb(t,kk,198,false);else if(look==="ultron")orb(t,kk,356,true);else if(look==="robot")robot(t,kk);else if(look==="orion")orion(t,kk)}
+   if(look==="jarvis")orb(t,kk,198,false);else if(look==="ultron")mask(t,kk);else if(look==="astral")astral(t,kk);else if(look==="robot")robot(t,kk);else if(look==="orion")orion(t,kk)}
   requestAnimationFrame(loop)}
  requestAnimationFrame(loop);
  // seçim kartları
+ // devre çizimi (her kart için sabit desen)
+ function circuit(seed,c){let r=seed;const R=()=>(r=(r*9301+49297)%233280)/233280;let p="";
+  for(let i=0;i<9;i++){let x=10+R()*80|0,y=8+R()*70|0;let d="M"+x+" "+y;for(let j=0;j<3;j++){if(R()<.5)x=Math.max(4,Math.min(96,x+(R()<.5?-1:1)*(10+R()*25|0)));else y=Math.max(4,Math.min(82,y+(R()<.5?-1:1)*(8+R()*22|0)));d+=" L"+x+" "+y}
+   p+='<path d="'+d+'" stroke="#fff" stroke-opacity=".85" stroke-width="1.6" fill="none"/><circle cx="'+x+'" cy="'+y+'" r="2.4" fill="#fff"/>'}
+  return '<svg viewBox="0 0 100 86" preserveAspectRatio="none"><defs><linearGradient id="cg'+seed+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+c+'"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient></defs><rect width="100" height="86" fill="'+c+'"/><rect width="100" height="86" fill="url(#cg'+seed+')"/>'+p+'</svg>'}
  function render(){const box=document.getElementById("lks");if(!box)return;box.innerHTML="";const sel=get();
-  LOOKS.forEach(x=>{const b=document.createElement("button");b.className="vpb"+(x.k===sel?" on":"");b.setAttribute("aria-pressed",x.k===sel);
-   b.innerHTML="<b>"+(x.k===sel?"✓ ":"")+x.n+"</b><span>"+x.d+"</span>";b.onclick=()=>{try{localStorage.setItem("g_look",x.k)}catch(e){}render();apply()};box.append(b)})}
+  LOOKS.forEach((x,i)=>{const b=document.createElement("button");b.className="cart"+(x.k===sel?" on":"");b.style.setProperty("--c",x.c||"#888");b.setAttribute("aria-pressed",x.k===sel);b.setAttribute("aria-label",x.n);
+   b.innerHTML='<div class="lbl">'+x.n+'</div>'+circuit(17+i*31,x.c||"#888")+'<div class="pins">'+"<i></i>".repeat(9)+'</div><div class="ds">'+x.d+'</div>';
+   b.onclick=()=>{try{localStorage.setItem("g_look",x.k)}catch(e){}render();apply();b.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"})};box.append(b)})}
  const vps=document.getElementById("vps");
- if(vps){const lbl=document.createElement("div");lbl.className="sub";lbl.style.cssText="text-align:left;margin-top:10px";lbl.textContent="Ekran görünümü (dokun, seç)";
-  const box=document.createElement("div");box.id="lks";box.className=vps.className;vps.after(box);vps.after(lbl);
+ if(vps){const lbl=document.createElement("div");lbl.className="sub";lbl.style.cssText="text-align:left;margin-top:10px";lbl.textContent="Yapay zekâ görünümü (kartı tak)";
+  const box=document.createElement("div");box.id="lks";vps.after(box);vps.after(lbl);
   // ses kutusunun yanındaki seçici satırının arkasına taşı
   const vrow=document.getElementById("voice");const after=vrow?vrow.closest(".row"):null;if(after){after.after(box);after.after(lbl)}
   render()}
