@@ -1900,6 +1900,27 @@ if(typeof A.gmailAction==="function"){
   return _hal(t,quick)};}
 
 
+/* ---------- "Bana / kendime" → kendi WhatsApp sohbetin ---------- */
+{const SELF=/(^|\s)(kendime|kendimize|bana|benim numarama|kendi numarama|kendi sohbetime|siz yazan|\(siz\))(\s|$|[?.!,:])/i;
+ const myNum=()=>{try{return localStorage.getItem("g_myNum")||""}catch(e){return ""}};
+ const _fs=findContact;
+ findContact=function(t){t=String(t).replace(/(whatsapp|watsap|vatsap|whatsap)\S*\s+['’]?(tan|dan|ten|den)(?=\s|$)/gi,"$1");
+  if(!SELF.test(low(t)))return _fs(t);
+  const r=_fs(t.replace(SELF," "));if(r)return r;
+  if(SELF.test(low(String(t)))&&/(whatsapp|watsap|vatsap|\bwp\b|konum|mesaj|fotoğraf|resim)/i.test(t)&&myNum())return{c:{ad:"Kendi numaran (Siz)",tel:myNum()},k:"bana",hit:(low(String(t)).match(SELF)||[])[2]||"bana"};
+  return null};
+ const _hself=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  let m=s.match(/(benim|kendi) numaram\s*:?\s*([+\d][\d\s\-]{9,16})/);
+  if(m&&!pendYN&&!pendInput){add(t,"u");const n=waNum(m[2].replace(/\D/g,""));try{localStorage.setItem("g_myNum",n)}catch(e){}tell("Tamam patron, kendi numaranı kaydettim. Bana konum gönder dersen kendi sohbetine gönderirim.");return}
+  if(!pendYN&&!pendInput&&SELF.test(s)&&/(whatsapp|watsap|vatsap|\bwp\b|konum|mesaj)/.test(s)&&!myNum()&&!findContact(t)){
+   add(t,"u");const q="Patron, kendi numaranı bilmiyorum. Numaranı söyler misin? Sadece bu telefonda saklarım.";add(q,"g");
+   pendInput=async a=>{const d=String(a).replace(/\D/g,"");if(d.length<10){tell("Numarayı anlayamadım patron.");return}
+    try{localStorage.setItem("g_myNum",waNum(d))}catch(e){}tell("Kaydettim patron.");handle(t)};
+   say(q,autoListen);return}
+  return _hself(t,quick)};}
+
+
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
 if(typeof A.cleanGallery==="function"){
  window.nativeClean=n=>tell(n+" fotoğraf kalıcı olarak silindi patron.");
