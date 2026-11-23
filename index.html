@@ -892,7 +892,7 @@ let pendYN=null,pendInput=null;
 function askYN(q,yes,no){pendYN={yes,no};add(q,"g");say(q,autoListen)}
 function askIn(q,fn){pendInput=fn;add(q,"g");say(q,autoListen)}
 function tell(m){add(m,"g");say(m)}
-const YES=/^(evet|gönder|tamam|olur|olsun|yap|aynen|oku|okuyabilirsin|devam|eminim|tabii|tabi|başlat|başla|ara\b|arayabilirsin|sil|boşalt|kaydet|güncelle|indir|kur\b|aç\b|peki|kabul|onayl|ok\b|okey|he\b|hı\b|evt|tamamdır|lütfen|hadi|haydi|git|gidelim|yolla|at\b)/,NO=/^(hayır|hayir|iptal|vazgeç|vazgec|gönderme|yok|istemem|boşver|bosver|dur\b|durdur|okuma|başlatma|başlama|arama|silme|yapma|açma|kaydetme|güncelleme|gerek yok|sonra|bekle|yollama|atma)/;
+const YES=/^(evet|gönder|tamam|olur|olsun|güncelle|kur|indir|ok|okay|okey|tamamdır|aynen|evet güncelle|yap|aynen|oku|okuyabilirsin|devam|eminim|tabii|tabi|başlat|başla|ara\b|arayabilirsin|sil|boşalt|kaydet|güncelle|indir|kur\b|aç\b|peki|kabul|onayl|ok\b|okey|he\b|hı\b|evt|tamamdır|lütfen|hadi|haydi|git|gidelim|yolla|at\b)/,NO=/^(hayır|hayir|iptal|vazgeç|vazgec|gönderme|yok|istemem|boşver|bosver|dur\b|durdur|okuma|başlatma|başlama|arama|silme|yapma|açma|kaydetme|güncelleme|gerek yok|sonra|bekle|yollama|atma)/;
 
 /* ---------- Arama / SMS / WhatsApp / konum (telefonun kendisiyle) ---------- */
 doSend=function(ch,c,num,msg){const ad=c?c.ad:num;
@@ -2045,6 +2045,13 @@ Aynı adımı tekrar tekrar yapma. Amaç tamamlandıysa hemen done ver.`;
    return screenAgent(goal||t,app)}
   return _hs(t,quick)};
 }
+
+/* ---------- Soru bekliyorsam: evet/hayır cevabı her komuttan önce gelir ---------- */
+{const _hyn=handle;handle=async function(t,quick){const s=low(String(t||"").trim());
+ if(pendYN&&s){const p=pendYN;
+  if(NO.test(s)){add(t,"u");pendYN=null;return p.no&&p.no()}
+  if(YES.test(s)){add(t,"u");pendYN=null;return p.yes()}}
+ return _hyn(t,quick)}}
 
 /* ---------- Bekçi: iş bitince uyandırma dinlemesi hep açık kalsın ---------- */
 setInterval(()=>{try{
