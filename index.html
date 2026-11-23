@@ -1650,6 +1650,13 @@ window.mapsBrief=function(arr){
     const k=a.findIndex(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()));
     if(k>=0){chip=a[k];if(!/[·•]/.test(chip)){const d=a.slice(k+1,k+4).find(x=>/^(\d+\s*sa\.?\s*)?\d+\s*dk\.?$/i.test(String(x).trim()));if(d)window.__homeDurX=d}}}};
    await look(5);
+   // Navigasyon açıksa Ev düğmesi görünmez: kalan süreyi söyle, kapatmayı sor
+   if(!chip&&!window.__navExitTried){let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}
+    if(a.some(x=>/^(çıkış|exit|navigasyondan çık)$/i.test(String(x).trim())||/(varış|arrival|kalan)/i.test(String(x)))){
+     setSt("");
+     const d=a.find(x=>/^(\d+\s*sa\.?\s*)?\d+\s*dk\.?$/i.test(String(x).trim()))||"",km=a.find(x=>/^[\d.,]+\s*km$/i.test(String(x).trim()))||"",eta=a.find(x=>/^\d{1,2}[:.]\d{2}$/.test(String(x).trim()))||"";
+     let m="Patron, şu an navigasyon açık. "+(d?"Gittiğin yere kalan süre "+d.replace(/sa\.?/,"saat").replace(/dk\.?/,"dakika")+(km?", "+km.replace("km","kilometre"):"")+(eta?", varış saati "+eta:"")+". ":"")+"Navigasyonu kapatıp eve bakayım mı?";
+     askYN(m,()=>{window.__navExitTried=true;A.openApp("Haritalar");setTimeout(()=>{A.tapText("Çıkış|Exit|Navigasyondan çık|Navigasyonu kapat|Navigasyonu bitir|Close navigation|Kapat|Close");setTimeout(()=>{handle(t).finally(()=>{window.__navExitTried=false})},2500)},1500)},()=>tell("Tamam, navigasyona dokunmadım."));return}}
    // Haritalar eski bir rota/navigasyon ekranında kaldıysa ana haritaya dön
    if(!chip){A.openUrl("https://www.google.com/maps/@?api=1&map_action=map");await look(7)}
    if(!chip){A.tapText("Keşfet|Explore");await look(4)}
