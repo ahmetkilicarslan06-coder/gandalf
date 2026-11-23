@@ -1646,8 +1646,12 @@ window.mapsBrief=function(arr){
   if(home&&typeof A.screenTexts==="function"&&A.waAutoOk()){
    A.openApp("Haritalar")||A.openApp("Maps");setSt("Haritalar'da Ev'e bakıyorum…");
    let chip="";
-   for(let i=0;i<8&&!chip;i++){await new Promise(r=>setTimeout(r,1000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}
-    chip=a.find(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()))||""}
+   const look=async n=>{for(let i=0;i<n&&!chip;i++){await new Promise(r=>setTimeout(r,1000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}
+    chip=a.find(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()))||""}};
+   await look(5);
+   // Haritalar eski bir rota/navigasyon ekranında kaldıysa ana haritaya dön
+   if(!chip){A.openUrl("https://www.google.com/maps/@?api=1&map_action=map");await look(7)}
+   if(!chip){A.tapText("Keşfet|Explore");await look(4)}
    setSt("");
    if(!chip){say("Patron, Haritalar'da kayıtlı Ev adresini göremedim. Haritalar'da Ev adresini kaydetmen gerekiyor.");return}
    const dm=chip.match(/[·•]\s*(.+)$/);
