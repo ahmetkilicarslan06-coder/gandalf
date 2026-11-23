@@ -1103,7 +1103,7 @@ let pendYN=null,pendInput=null;
 function askYN(q,yes,no){pendYN={yes,no};add(q,"g");say(q,autoListen)}
 function askIn(q,fn){pendInput=fn;add(q,"g");say(q,autoListen)}
 function tell(m){add(m,"g");say(m)}
-const YES=/^(evet|gönder|tamam|olur|olsun|güncelle|kur|indir|ok|okay|okey|tamamdır|aynen|evet güncelle|yap|aynen|oku|okuyabilirsin|devam|eminim|tabii|tabi|başlat|başla|ara\b|arayabilirsin|sil|boşalt|kaydet|güncelle|indir|kur\b|aç\b|peki|kabul|onayl|ok\b|okey|he\b|hı\b|evt|tamamdır|lütfen|hadi|haydi|git|gidelim|yolla|at\b)/,NO=/^(hayır|hayir|iptal|vazgeç|vazgec|gönderme|yok|istemem|boşver|bosver|dur\b|durdur|okuma|başlatma|başlama|arama|silme|yapma|açma|kaydetme|güncelleme|gerek yok|sonra|bekle|yollama|atma)/;
+const YES=/^(var\b|var mı|evet|gönder|tamam|olur|olsun|güncelle|kur|indir|ok|okay|okey|tamamdır|aynen|evet güncelle|yap|aynen|oku|okuyabilirsin|devam|eminim|tabii|tabi|başlat|başla|ara\b|arayabilirsin|sil|boşalt|kaydet|güncelle|indir|kur\b|aç\b|peki|kabul|onayl|ok\b|okey|he\b|hı\b|evt|tamamdır|lütfen|hadi|haydi|git|gidelim|yolla|at\b)/,NO=/^(yok|hiçbir şey|bir şey yok|teşekkür|sağ ol|sağol|eyvallah|yeter|bu kadar|şimdilik yok|hayır|hayir|iptal|vazgeç|vazgec|gönderme|yok|istemem|boşver|bosver|dur\b|durdur|okuma|başlatma|başlama|arama|silme|yapma|açma|kaydetme|güncelleme|gerek yok|sonra|bekle|yollama|atma)/;
 
 /* ---------- Arama / SMS / WhatsApp / konum (telefonun kendisiyle) ---------- */
 doSend=function(ch,c,num,msg){const ad=c?c.ad:num;
@@ -2176,8 +2176,8 @@ if(typeof A.media2==="function"){
   setSt("YouTube'da arıyorum…");const id="yt"+(++yn);
   const r=await new Promise(ok=>{yw[id]=ok;A.ytPlay(id,q);setTimeout(()=>{if(yw[id]){delete yw[id];ok("timeout")}},15000)});setSt("");
   window.__ytAt=Date.now();
-  if(r==="ok"){const m="Tamam patron, YouTube'da çalıyorum: "+q;add(m,"g");say("Tamam patron, çalıyorum.")}
-  else if(r==="searchtap"){add("YouTube'da aradım, ilk uygun videoyu açıyorum: "+q,"g");say("Tamam patron, açıyorum.")}
+  if(r==="ok"||r==="searchtap"){add("YouTube'da çalıyorum: "+q,"g");
+   askYN("Tamam patron, çalıyorum. İstediğiniz başka bir şey var mı?",()=>say("Buyur patron, dinliyorum.",autoListen),()=>tell("İyi eğlenceler patron."))}
   else if(r==="search"){add("İlk videoyu bulamadım, YouTube'da aramayı açtım: "+q,"g");say("İlk videoyu bulamadım patron, aramayı açtım.")}
   else{add("YouTube'u açamadım patron.","g");say("YouTube'u açamadım patron.")}};
  const NW={bir:1,iki:2,"üç":3,"dört":4,"beş":5,"altı":6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,yirmi:20,otuz:30,"kırk":40,"kırk beş":45,elli:50,"altmış":60,doksan:90};
