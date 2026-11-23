@@ -774,7 +774,7 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
    for(const ex of [392,568]){const eg=g.createRadialGradient(ex,376,2,ex,376,40);eg.addColorStop(0,"rgba(120,200,255,"+(.5*hk*pulse)+")");eg.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=eg;g.fillRect(ex-45,330,90,90)}
   }
   g.restore()}
- function f(ts){if(window.__look&&window.__look!=="gandalf"){requestAnimationFrame(f);return}const talk=document.body.classList.contains("talk");
+ let lf=0;function f(ts){if(document.hidden||(window.__look&&window.__look!=="gandalf")){requestAnimationFrame(f);return}const talk=document.body.classList.contains("talk");if(ts-lf<(talk?33:80)){requestAnimationFrame(f);return}lf=ts;
   if(talk){if(ts>nx){tgt=Math.random()<.2?0:.4+Math.random()*.6;nx=ts+80+Math.random()*110}}else tgt=0;
   cur+=(tgt-cur)*.45;hg+=((talk?1:0)-hg)*.08;draw(ts,cur,hg);requestAnimationFrame(f)}
  function go(){if(still)draw(0,0,0);else requestAnimationFrame(f)}
@@ -786,8 +786,9 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
 <script>
 /* ==== Ekran görünümü: Gandalf / Jarvis / Ultron / Robot / Orion ==== */
 (()=>{const face=document.querySelector(".face");if(!face)return;
- const cv=document.createElement("canvas");cv.id="av";cv.width=cv.height=960;cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:none";
+ const cv=document.createElement("canvas");cv.id="av";cv.width=cv.height=480;cv.style.cssText="position:absolute;inset:0;width:100%;height:100%;display:none";
  face.insertBefore(cv,face.querySelector(".scan"));const g=cv.getContext("2d"),S=960,C=480;
+ {const d=Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype,"shadowBlur");Object.defineProperty(g,"shadowBlur",{set(v){d.set.call(g,Math.min(v*.3,6))},get(){return d.get.call(g)}})}
  const LOOKS=[{k:"auto",n:"Otomatik",d:"seçtiğin sese göre",c:"#d4a017"},{k:"gandalf",n:"Gandalf",d:"bilge büyücü portresi",c:"#5b7fa8"},{k:"jarvis",n:"Jarvis",d:"mavi dönen ışık halkaları",c:"#1e88ff"},{k:"ultron",n:"Kızıl Maske",d:"kırmızı ışıklı yapay zekâ maskesi",c:"#c8142c"},{k:"robot",n:"Robot",d:"hologram insan figürü",c:"#0fb5c8"},{k:"orion",n:"Orion",d:"parlayan takımyıldızı",c:"#6b4dff"},{k:"astral",n:"Astral",d:"yıldız tozundan ışık insan",c:"#9fd2ff"}];
  const get=()=>{try{return localStorage.getItem("g_look")||"auto"}catch(e){return "auto"}};
  const cur=()=>{let k=get();if(k==="auto"){let fx="";try{fx=(VPRE[vpIdx]||{}).fx||""}catch(e){}k=fx==="jarvis"?"jarvis":fx==="ultron"?"ultron":fx==="robot"?"robot":"gandalf"}return k};
@@ -817,11 +818,11 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
   g.globalCompositeOperation="source-over"}
  // Robot: hologram insan figürü
  const J={hd:[480,205],nk:[480,262],sh:[[392,296],[568,296]],ch:[480,350],wa:[480,470],hp:[[430,500],[530,500]],el:[[372,400],[588,400]],wr:[[352,505],[608,505]],hn:[[345,545],[615,545]],kn:[[438,640],[522,640]],an:[[440,780],[520,780]],ft:[[425,805],[535,805]]};
- const BONES=[["nk","ch"],["ch","wa"]];
+ let RP=null,RM=null,GR=null;
  function robot(t,k){
   const hue=186;g.fillStyle="#010608";g.fillRect(0,0,S,S);
   // ızgara
-  g.strokeStyle="hsla("+hue+",100%,50%,.08)";g.lineWidth=1;for(let x=0;x<S;x+=32){g.beginPath();g.moveTo(x,0);g.lineTo(x,S);g.stroke()}for(let y=0;y<S;y+=32){g.beginPath();g.moveTo(0,y);g.lineTo(S,y);g.stroke()}
+  if(!GR){GR=new Path2D();for(let x=0;x<S;x+=32){GR.moveTo(x,0);GR.lineTo(x,S)}for(let y=0;y<S;y+=32){GR.moveTo(0,y);GR.lineTo(S,y)}}g.strokeStyle="hsla("+hue+",100%,50%,.08)";g.lineWidth=1;g.stroke(GR);
   g.globalCompositeOperation="lighter";
   // zemin halkaları
   for(let i=0;i<4;i++){const rr=60+i*45+((t*30)%45);g.strokeStyle="hsla("+hue+",100%,60%,"+(.5-i*.1)+")";g.lineWidth=2;g.beginPath();g.ellipse(480,812,rr*1.6,rr*.35,0,0,6.28);g.stroke()}
@@ -837,8 +838,9 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
   limb(J.nk,[480,240],30);
   for(const s of [0,1]){limb(J.sh[s],J.el[s],46);limb(J.el[s],J.wr[s],34);limb(J.wr[s],J.hn[s],20);limb(J.hp[s],J.kn[s],60);limb(J.kn[s],J.an[s],42);limb(J.an[s],J.ft[s],16)}
   // iç ağ (üçgenleme)
-  const pts=[J.hd,J.nk,...J.sh,J.ch,J.wa,...J.hp,...J.el,...J.wr,...J.kn,...J.an];g.lineWidth=1;g.strokeStyle=col(.22+k*.15);
-  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){const d=Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1]);if(d<150){g.beginPath();g.moveTo(...pts[i]);g.lineTo(...pts[j]);g.stroke()}}
+  const pts=RP||(RP=[J.hd,J.nk,...J.sh,J.ch,J.wa,...J.hp,...J.el,...J.wr,...J.kn,...J.an]);g.lineWidth=1;g.strokeStyle=col(.22+k*.15);
+  if(!RM){RM=new Path2D();for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){if(Math.hypot(pts[i][0]-pts[j][0],pts[i][1]-pts[j][1])<150){RM.moveTo(...pts[i]);RM.lineTo(...pts[j])}}}
+  g.stroke(RM);
   // eklem noktaları
   for(const p of pts){g.fillStyle=col(.6+.4*Math.sin(t*5+p[0]));g.beginPath();g.arc(p[0],p[1],4+k*2,0,6.28);g.fill()}
   // kalp / çekirdek ışığı
@@ -921,7 +923,8 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
   for(const f of FL){g.strokeStyle=W(.18+.2*Math.sin(t*1.5+f.p)+k*.2);g.lineWidth=1.6;g.beginPath();const y0=480+f.o*400;
    g.moveTo(150,y0+40);g.bezierCurveTo(330,y0-60+Math.sin(t+f.p)*20,560,y0+90,820,y0-20+Math.cos(t+f.p)*20);g.stroke()}
   // yıldız tozu
-  for(const a of AS){const x=140+a.u*680,y=150+a.v*750;if(!g.isPointInPath(B,x,y))continue;const al=Math.max(0,.25+.7*Math.sin(t*3+a.p))*(.7+k*.6);g.fillStyle=W(al.toFixed(2));g.beginPath();g.arc(x,y,a.s,0,6.28);g.fill()}
+  if(!AS.ok){for(const a of AS)a.in=g.isPointInPath(B,140+a.u*680,150+a.v*750);AS.ok=1}
+  for(const a of AS){if(!a.in)continue;const x=140+a.u*680,y=150+a.v*750;const al=Math.max(0,.25+.7*Math.sin(t*3+a.p))*(.7+k*.6);g.fillStyle=W(al.toFixed(2));g.beginPath();g.arc(x,y,a.s,0,6.28);g.fill()}
   g.restore();
   // yüz hatları (profil, gözler kapalı)
   g.shadowBlur=12;g.strokeStyle=W(.7);g.lineWidth=2.2;
@@ -931,11 +934,12 @@ document.querySelectorAll("#quick button[data-q]").forEach(b=>b.onclick=()=>hand
   const hc=g.createRadialGradient(470,600,0,470,600,120+k*80);hc.addColorStop(0,W(.45+k*.4));hc.addColorStop(1,W(0));g.fillStyle=hc;g.beginPath();g.arc(470,600,200,0,6.28);g.fill();
   g.shadowBlur=0;g.globalCompositeOperation="source-over"}
  let tg=0,kk=0,nx=0;
- function loop(ts){apply();
-  if(look!=="gandalf"){const talk=document.body.classList.contains("talk");if(talk){if(ts>nx){tg=Math.random()<.2?.1:.4+Math.random()*.6;nx=ts+80+Math.random()*110}}else tg=0;kk+=(tg-kk)*.3;
+ let last=0;
+ function loop(ts){requestAnimationFrame(loop);if(document.hidden)return;
+  const talk0=document.body.classList.contains("talk");if(ts-last<(talk0?33:80))return;last=ts;apply();
+  if(look!=="gandalf"){g.setTransform(.5,0,0,.5,0,0);const talk=document.body.classList.contains("talk");if(talk){if(ts>nx){tg=Math.random()<.2?.1:.4+Math.random()*.6;nx=ts+80+Math.random()*110}}else tg=0;kk+=(tg-kk)*.3;
    const t=ts/1000;g.clearRect(0,0,S,S);
-   if(look==="jarvis")orb(t,kk,198,false);else if(look==="ultron")mask(t,kk);else if(look==="astral")astral(t,kk);else if(look==="robot")robot(t,kk);else if(look==="orion")orion(t,kk)}
-  requestAnimationFrame(loop)}
+   if(look==="jarvis")orb(t,kk,198,false);else if(look==="ultron")mask(t,kk);else if(look==="astral")astral(t,kk);else if(look==="robot")robot(t,kk);else if(look==="orion")orion(t,kk)}}
  requestAnimationFrame(loop);
  // seçim kartları
  // devre çizimi (her kart için sabit desen)
