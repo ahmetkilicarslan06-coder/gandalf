@@ -1189,7 +1189,11 @@ const wakeAgain=()=>{
  return true};
 const _wns=window.nativeNoSpeech;window.nativeNoSpeech=()=>{if(wakeWait)return wakeAgain();return _wns()};
 const _wle=window.nativeListenError;window.nativeListenError=c=>{if(wakeWait){setTimeout(wakeAgain,800);return}return _wle(c)};
-const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){wakeStop();keep(false)}return _wr(t)};
+const _wr=window.nativeResult;window.nativeResult=t=>{if(wakeWait){
+  // "Beni duyuyor musun?" sorusuna "evet / buradayım" cevabı: komut değil, dinlemeye devam
+  const a=String(t||"").toLocaleLowerCase("tr").trim();
+  if(/^(evet|evt|he|hı|hıhı|buradayım|burdayım|duyuyorum|efendim|söyle|dinliyorum|tamam|buyur|evet duyuyorum|evet buradayım)[.!? ]*$/.test(a)){wakeStop();wakeWait=1;keep(true);say("Buyur patron, seni dinliyorum.",()=>A.listen());return}
+  wakeStop();keep(false)}return _wr(t)};
 window.__wakeStop=wakeStop;
 
 /* ---------- LG televizyon (kızılötesi) ve uygulama açma ---------- */
@@ -1763,7 +1767,11 @@ window.mapsBrief=function(arr){
  renderR();
  $("radd").onclick=()=>{const n=norm($("rname").value.replace(/rutini?$/i,""));const st=$("rsteps").value.split(/\n+/).map(v=>v.trim()).filter(Boolean);
   if(!n||!st.length){tell("Rutin için bir ad ve en az bir komut yaz patron.");return}
-  const r=getR();r[n]=st;setR(r);$("rname").value="";$("rsteps").value="";tell(n+" rutini kaydedildi patron. "+n+" rutini dediğinde başlatırım.")};
+  const r=getR();r[n]=st;setR(r);$("rname").value="";$("rsteps").value="";
+  // Saat içeren ama "hatırlat" demeyen satır: hatırlatma mı olsun?
+  const rs=st.filter(x=>/(\d{1,2}[:.]\d{2}|saat\s*\d|sabah|akşam|öğlen)/i.test(x)&&!/hatırlat/i.test(x));
+  if(rs.length){askYN(n+" rutini kaydedildi patron. Ama bu bir hatırlatmaya benziyor; rutin sadece sen başlatınca çalışır. Bunu saatinde hatırlatma olarak da kurayım mı?",async()=>{for(const x of rs)await handle(x.replace(/\s+(['’])/g,"$1")+" hatırlat")},()=>tell("Tamam, sadece rutin olarak kaldı."));return}
+  tell(n+" rutini kaydedildi patron. "+n+" rutini dediğinde başlatırım.")};
 
  // ---- Ajan: karışık istekleri parçalara ayırıp sırayla yapar ----
  const PLAN_SYS=`Sen Gandalf adlı sesli asistanın görev planlayıcısısın. Kullanıcının isteğini Gandalf'ın anladığı basit Türkçe komutlara böl ve SADECE JSON döndür: {"steps":[...]}.
@@ -1939,6 +1947,13 @@ if(typeof A.gmailAction==="function"){
    tell("Gönderiyorum patron.");const r=await waSelf(loc?"loc":"msg",msg);
    tell(r==="ok"?(loc?"Konum kendi sohbetine gönderildi patron.":"Mesaj kendi sohbetine gönderildi patron."):r==="noself"?"WhatsApp'ta (Siz) yazan kendi sohbetini bulamadım patron.":r==="nowa"?"Telefonda WhatsApp bulamadım patron.":"WhatsApp'ta takıldım patron.")},()=>tell("Tamam, göndermedim."));
  };}
+
+
+/* ---------- Sesle "sesimi öğret" ---------- */
+{const _hcal=handle;handle=async function(t,quick){const s=low(String(t||""));
+ if(!pendYN&&!pendInput&&$("calb")&&/(sesimi öğren|sesimi öğret|adını öğret|ismini öğret|seni nasıl çağırdığımı öğren|uyandırmayı öğren)/.test(s)){add(t,"u");
+  say("Tamam patron. Şimdi aralarında birer saniye bekleyerek üç kere "+NM()+" de.",()=>$("calb").click());return}
+ return _hcal(t,quick)}}
 
 
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
