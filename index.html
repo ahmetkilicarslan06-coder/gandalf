@@ -2306,6 +2306,13 @@ Aynı adımı tekrar tekrar yapma. Amaç tamamlandıysa hemen done ver.`;
   return _hs(t,quick)};
 }
 
+/* ---------- YouTube istekleri her zaman doğrudan oynatmaya gitsin ---------- */
+{const _hytr=handle;handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+ if(!pendYN&&!pendInput&&typeof A.ytPlay==="function"&&(/(youtube|yutup|yutub|yotube)/.test(s)||isMusic(t))&&!/(televizyon|\btv\b|tivi|reklam|kapat|duraklat|durdur|ileri|geri|sonraki|önceki)/.test(s)){
+  const q=musicQuery(t.replace(/['’](dan|den|tan|ten|da|de|ta|te|ın|in|un|ün|nın|nin|nun|nün|yı|yi|yu|yü|ı|i|u|ü)(?=\s|$)/gi,"")).replace(/\b(şarkısını|şarkısı|türküsünü|türküsü|videosunu|videosu|klibini|klibi|izle|aç|açar|mısın|misin)\b/gi," ").replace(/\s+/g," ").trim();
+  if(q){add(t,"u");return playMusic(q+" şarkı çal")}}
+ return _hytr(t,quick)}}
+
 /* ---------- Soru bekliyorsam: evet/hayır cevabı her komuttan önce gelir ---------- */
 {const _hyn=handle;handle=async function(t,quick){const s=low(String(t||"").trim());
  if(pendYN&&s){const p=pendYN;
