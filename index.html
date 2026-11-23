@@ -1627,11 +1627,12 @@ window.mapsBrief=function(arr){
  durs.sort((a,b)=>mins(a)-mins(b));window.__mapsDurs=durs.slice(0,4);window.__mapsMins=mins;
  const km=(T.find(x=>/\(\s*[\d.,]+\s*km\s*\)/.test(x))||"").match(/[\d.,]+\s*km/);
  const notes=[...new Set(T.filter(x=>/(kaza|çarpışma|yol çalışma|çalışması|kapalı|trafik|yoğun|gecikme|tıkanık|kısıtlama|en hızlı|her zamanki|daha yavaş|dk\.? daha|dakika daha)/i.test(x)&&x.length<160&&!/^(trafik|katmanlar)$/i.test(x)).map(x=>x.replace(/\s*\|\s*/g," ").trim()))].slice(0,6);
- const TI=T.filter(x=>!/(etkilenmeyen|kaçın)/i.test(x));const inc=[];if(TI.some(x=>/(kaza|çarpışma|crash)/i.test(x)))inc.push("rotada kaza bildirimi");if(TI.some(x=>/(yol çalışma|çalışması|roadwork|construction)/i.test(x)))inc.push("yol çalışması");if(TI.some(x=>/(kapalı yol|yol kapalı|kapanış)/i.test(x)))inc.push("kapalı yol");
+ const TI=T.filter(x=>!/(etkilenmeyen|kaçın)/i.test(x));const inc=[];if(TI.some(x=>/(kaza|çarpışma|crash)/i.test(x)))inc.push("rotada kaza bildirimi");if(TI.some(x=>/(yol çalışma|çalışması|roadwork|construction)/i.test(x)))inc.push("yol çalışması");if(TI.some(x=>/(kapalı yol|yol kapalı|kapanış|kapatıldı|trafiğe kapalı|road closed|closure)/i.test(x)))inc.push("kapalı yol");
  if(!durs.length)return "";
  let m=durs.length>1?"Patron, "+durs.length+" güzergah var. En hızlısı "+say1(durs[0])+(km?", "+km[0].replace("km","kilometre"):"")+". Diğerleri "+durs.slice(1).map(say1).join(" ve ")+". ":"Patron, rota "+say1(durs[0])+(km?", "+km[0].replace("km","kilometre"):"")+" görünüyor. ";
  if(durs.length>1)m+="En hızlıyla en yavaş arasında "+(mins(durs[durs.length-1])-mins(durs[0]))+" dakika fark var. ";
- if(inc.length)m+="Haritada "+inc.join(", ")+" işareti görüyorum. ";
+ if(inc.includes("kapalı yol"))m+="Dikkat: rotada kapalı yol var. ";else m+="Yol açık, kapalı yol bildirimi yok. ";
+ const inc2=inc.filter(x=>x!=="kapalı yol");if(inc2.length)m+="Haritada "+inc2.join(", ")+" işareti görüyorum. ";else m+="Kaza bildirimi de görünmüyor. ";
  const n=notes.filter(x=>x.length>14&&(!DUR.test(x)||x.length>25));if(n.length)m+="Haritalar'ın notu: "+n.slice(0,2).join(". ")+". ";
  return m};
 {const _hn=handle;
@@ -1650,7 +1651,7 @@ window.mapsBrief=function(arr){
    setSt("");
    if(!chip){say("Patron, Haritalar'da kayıtlı Ev adresini göremedim. Haritalar'da Ev adresini kaydetmen gerekiyor.");return}
    const dm=chip.match(/[·•]\s*(.+)$/);
-   if(dm)say("Patron, eve şu an "+dm[1].replace(/sa\.?/,"saat").replace(/dk\.?/,"dakika")+" sürüyor. Rotalara bakıyorum.");
+   window.__homeDur=dm?dm[1]:"";
    await new Promise(r=>setTimeout(r,800));
    if(!A.tapText(chip+"|Ev|Home")){say("Ev düğmesine basamadım patron.");return}
    window.__navDest="Ev";
@@ -1666,6 +1667,7 @@ window.mapsBrief=function(arr){
   for(let i=0;i<10&&!brief;i++){await new Promise(r=>setTimeout(r,2000));raw=A.screenTexts()||"[]";let a=[];try{a=JSON.parse(raw)}catch(e){}brief=mapsBrief(a)}
   setSt("");
   if(!brief){let a=[];try{a=JSON.parse(raw)}catch(e){}
+   if(dest==="Ev"&&window.__homeDur){const m="Patron, eve şu an "+window.__homeDur.replace(/sa\.?/,"saat").replace(/dk\.?/,"dakika")+" sürüyor. Rota ekranını okuyamadığım için yolun açık olup olmadığını söyleyemiyorum.";add(m,"g");say(m);return}
    add("(Haritalar'a giden yer: "+dest+" — ekrandan gelen: "+(raw==="noacc"?"erişilebilirlik kapalı":a.slice(0,15).join(" ⏐ ").slice(0,500))+")","g");
    say("Patron, "+dest+" için rota açtım ama süreleri ekrandan okuyamadım. Haritalar yeri bulamamış olabilir, yer adını tekrar söyler misin?");return}
   add(brief,"g");
