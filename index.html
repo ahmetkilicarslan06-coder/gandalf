@@ -1900,25 +1900,30 @@ if(typeof A.gmailAction==="function"){
   return _hal(t,quick)};}
 
 
-/* ---------- "Bana / kendime" → kendi WhatsApp sohbetin ---------- */
+/* ---------- "Bana / kendime" → WhatsApp'taki kendi sohbetin "(Siz)" ---------- */
 {const SELF=/(^|\s)(kendime|kendimize|bana|benim numarama|kendi numarama|kendi sohbetime|siz yazan|\(siz\))(\s|$|[?.!,:])/i;
- const myNum=()=>{try{return localStorage.getItem("g_myNum")||""}catch(e){return ""}};
+ const WAFIX=t=>String(t).replace(/(whatsapp|watsap|vatsap|whatsap)\S*\s+['’]?(tan|dan|ten|den)(?=\s|$)/gi,"$1");
  const _fs=findContact;
- findContact=function(t){t=String(t).replace(/(whatsapp|watsap|vatsap|whatsap)\S*\s+['’]?(tan|dan|ten|den)(?=\s|$)/gi,"$1");
-  if(!SELF.test(low(t)))return _fs(t);
-  const r=_fs(t.replace(SELF," "));if(r)return r;
-  if(SELF.test(low(String(t)))&&/(whatsapp|watsap|vatsap|\bwp\b|konum|mesaj|fotoğraf|resim)/i.test(t)&&myNum())return{c:{ad:"Kendi numaran (Siz)",tel:myNum()},k:"bana",hit:(low(String(t)).match(SELF)||[])[2]||"bana"};
-  return null};
+ findContact=function(t){t=WAFIX(t);return _fs(SELF.test(low(t))?t.replace(SELF," "):t)};
+ const sw={};let sn2=0;const prevT2=window.nativeTile;
+ window.nativeTile=(id,r)=>{if(sw[id]){const f=sw[id];delete sw[id];f(r)}else if(prevT2)prevT2(id,r)};
+ const waSelf=(what,text)=>new Promise(ok=>{const id="me"+(++sn2);sw[id]=ok;A.waSelf(id,what,text||"");setTimeout(()=>{if(sw[id]){delete sw[id];ok("timeout")}},45000)});
  const _hself=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
-  let m=s.match(/(benim|kendi) numaram\s*:?\s*([+\d][\d\s\-]{9,16})/);
-  if(m&&!pendYN&&!pendInput){add(t,"u");const n=waNum(m[2].replace(/\D/g,""));try{localStorage.setItem("g_myNum",n)}catch(e){}tell("Tamam patron, kendi numaranı kaydettim. Bana konum gönder dersen kendi sohbetine gönderirim.");return}
-  if(!pendYN&&!pendInput&&SELF.test(s)&&/(whatsapp|watsap|vatsap|\bwp\b|konum|mesaj)/.test(s)&&!myNum()&&!findContact(t)){
-   add(t,"u");const q="Patron, kendi numaranı bilmiyorum. Numaranı söyler misin? Sadece bu telefonda saklarım.";add(q,"g");
-   pendInput=async a=>{const d=String(a).replace(/\D/g,"");if(d.length<10){tell("Numarayı anlayamadım patron.");return}
-    try{localStorage.setItem("g_myNum",waNum(d))}catch(e){}tell("Kaydettim patron.");handle(t)};
-   say(q,autoListen);return}
-  return _hself(t,quick)};}
+  if(pendYN||pendInput||typeof A.waSelf!=="function"||!SELF.test(s)||!/(whatsapp|watsap|vatsap|\bwp\b|konum|mesaj)/.test(s)||/(sms|mail|teams)/.test(s))return _hself(t,quick);
+  // Başka bir kişi de geçiyorsa (ör. "Meleğime yaz: bana ekmek al") o kişiye gitsin
+  const ci=t.indexOf(":");const head=ci>=0?t.slice(0,ci):t;
+  if(!SELF.test(low(head))||findContact(head))return _hself(t,quick);
+  add(t,"u");
+  if(!A.waAutoOk()){tell("Patron, bunun için Ayarlar'daki Erişilebilirlik iznini açman gerekiyor.");return}
+  const loc=/konum/.test(s);
+  const hit=(low(head).match(SELF)||[])[2]||"";
+  const msg=loc?"":extractMsg(WAFIX(t),{hit:trl(hit).replace(/[^a-zçğıöşü0-9]/g,""),k:hit}).replace(SELF," ").replace(/\b(siz|yazan|kişi|benim|kendi|sohbetime|numarama)\b/gi," ").replace(/\s+/g," ").trim();
+  if(!loc&&!msg){tell("Ne yazayım patron? Mesajı iki noktadan sonra söyle, örneğin: kendime mesaj at, iki nokta, yarın faturayı öde.");return}
+  askYN(loc?"Patron, WhatsApp'taki kendi sohbetine konumunu göndereyim mi?":"Patron, kendi sohbetine şunu yazayım mı: "+msg,async()=>{
+   tell("Gönderiyorum patron.");const r=await waSelf(loc?"loc":"msg",msg);
+   tell(r==="ok"?(loc?"Konum kendi sohbetine gönderildi patron.":"Mesaj kendi sohbetine gönderildi patron."):r==="noself"?"WhatsApp'ta (Siz) yazan kendi sohbetini bulamadım patron.":r==="nowa"?"Telefonda WhatsApp bulamadım patron.":"WhatsApp'ta takıldım patron.")},()=>tell("Tamam, göndermedim."));
+ };}
 
 
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
