@@ -1647,9 +1647,12 @@ window.mapsBrief=function(arr){
   setSt("Rotalara bakıyorum…");
   if(typeof A.screenTexts!=="function"||!A.waAutoOk()){setSt("");say("Patron, "+dest+" rotasını açtım. Yorumlamam için Erişilebilirlik izni ve son sürüm gerekiyor.");return}
   let brief="";
-  for(let i=0;i<8&&!brief;i++){await new Promise(r=>setTimeout(r,2000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}brief=mapsBrief(a)}
+  let raw="";
+  for(let i=0;i<10&&!brief;i++){await new Promise(r=>setTimeout(r,2000));raw=A.screenTexts()||"[]";let a=[];try{a=JSON.parse(raw)}catch(e){}brief=mapsBrief(a)}
   setSt("");
-  if(!brief){say("Patron, "+dest+" rotasını açtım ama süreleri ekrandan okuyamadım.");return}
+  if(!brief){let a=[];try{a=JSON.parse(raw)}catch(e){}
+   add("(Haritalar'a giden yer: "+dest+" — ekrandan gelen: "+(raw==="noacc"?"erişilebilirlik kapalı":a.slice(0,15).join(" ⏐ ").slice(0,500))+")","g");
+   say("Patron, "+dest+" için rota açtım ama süreleri ekrandan okuyamadım. Haritalar yeri bulamamış olabilir, yer adını tekrar söyler misin?");return}
   add(brief,"g");
   const D=window.__mapsDurs||[];
   if(D.length<2){askYN(brief+"Başlatayım mı patron?",()=>{A.openApp("Haritalar");setTimeout(()=>A.tapText("Başla|Start"),1500);tell("Başlatıyorum patron, iyi yolculuklar.")},()=>tell("Tamam, başlatmadım."));return}
