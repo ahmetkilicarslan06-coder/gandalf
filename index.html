@@ -2167,6 +2167,54 @@ if(typeof A.gmailAction==="function"){
  return _hcal(t,quick)}}
 
 
+/* ---------- YouTube: doğrudan oynat + duraklat / devam / kapat / ileri-geri sar ---------- */
+if(typeof A.media2==="function"){
+ const _pm=playMusic;
+ const yw={};let yn=0;window.nativeYt=(id,r)=>{const f=yw[id];if(f){delete yw[id];f(r)}};
+ playMusic=async function(t){const q=musicQuery(t);
+  if(!q)return _pm(t);
+  setSt("YouTube'da arıyorum…");const id="yt"+(++yn);
+  const r=await new Promise(ok=>{yw[id]=ok;A.ytPlay(id,q);setTimeout(()=>{if(yw[id]){delete yw[id];ok("timeout")}},15000)});setSt("");
+  window.__ytAt=Date.now();
+  if(r==="ok"){const m="Tamam patron, YouTube'da çalıyorum: "+q;add(m,"g");say("Tamam patron, çalıyorum.")}
+  else if(r==="search"){add("İlk videoyu bulamadım, YouTube'da aramayı açtım: "+q,"g");say("İlk videoyu bulamadım patron, aramayı açtım.")}
+  else{add("YouTube'u açamadım patron.","g");say("YouTube'u açamadım patron.")}};
+ const NW={bir:1,iki:2,"üç":3,"dört":4,"beş":5,"altı":6,yedi:7,sekiz:8,dokuz:9,on:10,"on beş":15,yirmi:20,otuz:30,"kırk":40,"kırk beş":45,elli:50,"altmış":60,doksan:90};
+ const amount=s=>{let m=s.match(/(\d+)\s*(saniye|sn|dakika|dk)/);let n=m?+m[1]:0,u=m?m[2]:"";
+  if(!m){for(const w of Object.keys(NW).sort((a,b)=>b.length-a.length)){const r=new RegExp("(^|\\s)"+w+"\\s+(saniye|sn|dakika|dk)");const q=s.match(r);if(q){n=NW[w];u=q[2];break}}}
+  if(!n)return 10;return /^(dakika|dk)/.test(u)?n*60:n};
+ const _hyt=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput)return _hyt(t,quick);
+  const ctx=/(müzi|şarkı|parça|video|youtube|yutup|klip|medya|spotify)/.test(s)||(window.__ytAt&&Date.now()-window.__ytAt<3*3600e3&&s.split(/\s+/).length<=6);
+  const other=/(televizyon|\btv\b|tivi|fener|wifi|wi-fi|bluetooth|ekran|kamera|alarm|hatırlat|navigasyon|haritalar|mail|whatsapp|ışı|lamba|klima|veri|konum|internet|uçak|sesi|sesini|telefon|uygulama|reklam)/.test(s);
+  if(ctx&&!other){
+   let c="";
+   if(/(ileri\s*(al|sar|geç|atla)|ileriye|öne sar)/.test(s))c="seek:"+amount(s);
+   else if(/(geri\s*(al|sar|dön|git)|geriye|başa sar)/.test(s)&&!/(sesi)/.test(s))c="seek:-"+amount(s);
+   else if(/(duraklat|durdur|beklet|\bdur\b|pause)/.test(s))c="pause";
+   else if(/(devam (et|ettir)|kaldığı yerden|oynat|başlat|resume)/.test(s)&&!musicQuery(t).replace(/(devam|ettir|et|kaldığı|yerden)/g,"").trim())c="play";
+   else if(/(kapat|sonlandır|bitir|kes)/.test(s))c="stop";
+   else if(/(sonraki|diğer şarkı|geç|atla)/.test(s))c="next";
+   else if(/(önceki)/.test(s))c="prev";
+   if(c){add(t,"u");const r=A.media2(c);
+    if(r==="nosession"){tell("Patron, ileri geri sarmak için Ayarlar'dan Gandalf'a bildirim erişimi vermen gerekiyor.");return}
+    if(c==="stop"){window.__ytAt=0;if(/youtube/.test(r))setTimeout(()=>A.goHome(),400);tell("Kapattım patron.");return}
+    if(c.startsWith("seek")){const n=Math.abs(+c.split(":")[1]);tell((c.includes("-")?"Geri aldım":"İleri aldım")+" patron, "+(n>=60&&n%60===0?n/60+" dakika":n+" saniye")+".");return}
+    tell(c==="pause"?"Duraklattım patron.":c==="play"?"Devam ediyorum patron.":c==="next"?"Sonrakine geçtim patron.":"Öncekine döndüm patron.");return}}
+  return _hyt(t,quick)};
+}
+/* ---------- YouTube: "Reklamı atla" düğmesine otomatik bas ---------- */
+if(typeof A.setAdSkip==="function"){
+ const d=document.createElement("div");d.className="row";d.innerHTML='<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="adsk"> YouTube\'da "Reklamı atla" çıkınca benim yerime bas</label>';
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(d,an);
+ $("adsk").checked=A.adSkip();$("adsk").onchange=()=>{A.setAdSkip($("adsk").checked);tell($("adsk").checked?"Tamam patron, atlanabilen reklamları atlayacağım.":"Reklam atlamayı kapattım patron.")};
+ const _had=handle;handle=async function(t,quick){const s=low(String(t||""));
+  if(!pendYN&&!pendInput&&/reklam/.test(s)&&/(atla|geç|kaldır|engelle)/.test(s)){add(t,"u");const off=/(kapat|atlama|bırak|istemiyorum)/.test(s);A.setAdSkip(!off);$("adsk").checked=!off;
+   tell(off?"Reklam atlamayı kapattım patron.":"Tamam patron. YouTube'da 'Reklamı atla' düğmesi çıkar çıkmaz basacağım. Atlanamayan reklamlar ise sonuna kadar oynar.");return}
+  return _had(t,quick)}}
+
+
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
 if(typeof A.cleanGallery==="function"){
  window.nativeClean=n=>tell(n+" fotoğraf kalıcı olarak silindi patron.");
