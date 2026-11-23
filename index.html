@@ -1647,7 +1647,8 @@ window.mapsBrief=function(arr){
    A.openApp("Haritalar")||A.openApp("Maps");setSt("Haritalar'da Ev'e bakıyorum…");
    let chip="";
    const look=async n=>{for(let i=0;i<n&&!chip;i++){await new Promise(r=>setTimeout(r,1000));let a=[];try{a=JSON.parse(A.screenTexts()||"[]")}catch(e){}
-    chip=a.find(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()))||""}};
+    const k=a.findIndex(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim()));
+    if(k>=0){chip=a[k];if(!/[·•]/.test(chip)){const d=a.slice(k+1,k+4).find(x=>/^(\d+\s*sa\.?\s*)?\d+\s*dk\.?$/i.test(String(x).trim()));if(d)window.__homeDurX=d}}}};
    await look(5);
    // Haritalar eski bir rota/navigasyon ekranında kaldıysa ana haritaya dön
    if(!chip){A.openUrl("https://www.google.com/maps/@?api=1&map_action=map");await look(7)}
@@ -1655,7 +1656,7 @@ window.mapsBrief=function(arr){
    setSt("");
    if(!chip){say("Patron, Haritalar'da kayıtlı Ev adresini göremedim. Haritalar'da Ev adresini kaydetmen gerekiyor.");return}
    const dm=chip.match(/[·•]\s*(.+)$/);
-   window.__homeDur=dm?dm[1]:"";
+   window.__homeDur=dm?dm[1]:(window.__homeDurX||"");window.__homeDurX="";window.__homeChip=chip;
    await new Promise(r=>setTimeout(r,800));
    if(!A.tapText(chip+"|Ev|Home")){say("Ev düğmesine basamadım patron.");return}
    window.__navDest="Ev";
@@ -1668,7 +1669,10 @@ window.mapsBrief=function(arr){
   if(typeof A.screenTexts!=="function"||!A.waAutoOk()){setSt("");say("Patron, "+dest+" rotasını açtım. Yorumlamam için Erişilebilirlik izni ve son sürüm gerekiyor.");return}
   let brief="";
   let raw="";
-  for(let i=0;i<10&&!brief;i++){await new Promise(r=>setTimeout(r,2000));raw=A.screenTexts()||"[]";let a=[];try{a=JSON.parse(raw)}catch(e){}brief=mapsBrief(a)}
+  for(let i=0;i<10&&!brief;i++){await new Promise(r=>setTimeout(r,2000));raw=A.screenTexts()||"[]";let a=[];try{a=JSON.parse(raw)}catch(e){}
+   // Ev düğmesi hâlâ ekrandaysa basış tutmamış: bir kez daha bas
+   if(dest==="Ev"&&i===2&&a.some(x=>/^(ev|home)\s*([·•\-:]|$)/i.test(String(x).trim())))A.tapText((window.__homeChip||"Ev")+"|Ev|Home");
+   brief=mapsBrief(a.filter(x=>!/^(ev|home)\s*[·•]/i.test(String(x).trim())))}
   setSt("");
   if(!brief){let a=[];try{a=JSON.parse(raw)}catch(e){}
    if(dest==="Ev"&&window.__homeDur){const m="Patron, eve şu an "+window.__homeDur.replace(/sa\.?/,"saat").replace(/dk\.?/,"dakika")+" sürüyor. Rota ekranını okuyamadığım için yolun açık olup olmadığını söyleyemiyorum.";add(m,"g");say(m);return}
