@@ -1107,7 +1107,7 @@ const YES=/^(var\b|var mı|evet|gönder|tamam|olur|olsun|güncelle|kur|indir|ok|
 
 /* ---------- Arama / SMS / WhatsApp / konum (telefonun kendisiyle) ---------- */
 doSend=function(ch,c,num,msg){const ad=c?c.ad:num;
- if(ch==="call"){tell("Tamam patron, "+ad+" aranıyor.");setTimeout(()=>A.call(num),1500);return}
+ if(ch==="call"){tell("Tamam patron, "+ad+" aranıyor.");setTimeout(()=>{A.call(num);window.__afterCall&&window.__afterCall()},1500);return}
  if(ch==="wa"){tell("WhatsApp'ta "+ad+" için mesaj hazır, gönder tuşuna bas patron.");setTimeout(()=>A.whatsapp(waNum(num),msg),1800);return}
  askYN("Patron, "+ad+" kişisine şu SMS'i göndereyim mi: "+msg+"?",()=>A.sms(num,msg),()=>tell("Tamam, göndermedim."))};
 window.nativeSmsResult=(ok,err)=>tell(ok?"SMS gönderildi patron.":"Gönderemedim: "+err);
@@ -2216,18 +2216,52 @@ if(typeof A.setAdSkip==="function"){
   return _had(t,quick)}}
 
 
+/* ---------- Ses yükseltici, hoparlörlü arama, kendini sessize al/aç ---------- */
+if(typeof A.setBoost==="function"){
+ const d=document.createElement("div");d.innerHTML='<div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="boostc"> Ses yükseltici (konuşmayı daha gür söyle)</label></div><div class="row"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="spkc"> Aramaları hoparlörden başlat</label></div>';
+ const an=$("perms").previousElementSibling;an.parentNode.insertBefore(d,an);
+ $("boostc").checked=A.boostOn();$("boostc").onchange=()=>{A.setBoost($("boostc").checked);tell($("boostc").checked?"Ses yükseltici açık patron, artık daha gür konuşacağım.":"Ses yükseltici kapandı patron.")};
+ const spkPref=()=>{try{return localStorage.getItem("g_spk")==="1"}catch(e){return false}};
+ $("spkc").checked=spkPref();$("spkc").onchange=()=>{try{localStorage.setItem("g_spk",$("spkc").checked?"1":"0")}catch(e){}};
+ window.__afterCall=()=>{if(!(spkPref()||(window.__spkUntil&&Date.now()<window.__spkUntil)))return;window.__spkUntil=0;
+  let n=0;const tryS=()=>{if(A.speaker(true)==="ok"&&n>0)return;if(++n<5)setTimeout(tryS,2000)};setTimeout(tryS,3500)};
+ const _hm=handle;
+ handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
+  if(pendYN||pendInput)return _hm(t,quick);
+  // "Meleğimi hoparlörden ara"
+  if(/hoparlör/.test(s)&&/(\bara\b|arar|arasana|aramayı|telefon et)/.test(s)){window.__spkUntil=Date.now()+90000;return _hm(t.replace(/\s*hoparlör(den|de|dan|da|e|a)?\s*/gi," ").replace(/\s+/g," ").trim(),quick)}
+  if(/hoparlör/.test(s)&&/(aç|kapat|ver|geç)/.test(s)){add(t,"u");const on=!/kapat/.test(s);const r=A.speaker(on);tell(r==="ok"?(on?"Hoparlörü açtım patron.":"Hoparlörü kapattım patron."):r==="noacc"?"Bunun için Erişilebilirlik izni gerekiyor patron.":"Hoparlör düğmesini bulamadım patron.");return}
+  // Gandalf'ın kendi sesi
+  if(/^(kendini sessize al|sus|sessiz ol|konuşma|sesini kapat|sesli cevap verme)\b/.test(s)){add(t,"u");if(speak)$("spk").click();add("Tamam patron, sessiz kalıyorum. Tekrar konuşmamı istersen 'sesini aç' de.","g");return}
+  if(/^(sesini aç|konuş|sesli cevap ver|tekrar konuş|sessizden çık)\b/.test(s)){add(t,"u");if(!speak)$("spk").click();say("Tamam patron, tekrar konuşuyorum.");return}
+  // ses az geliyor
+  if(/(sesin|ses).{0,12}(az|kısık|düşük|duyulmuyor|duyamıyorum)/.test(s)&&!/(televizyon|tv|müzik|video)/.test(s)){add(t,"u");A.setBoost(true);$("boostc").checked=true;A.volume&&A.volume("music","max",0);say("Ses yükselticiyi açtım ve sesi sonuna kadar açtım patron. Şimdi nasıl?");return}
+  return _hm(t,quick)};
+}
+
+
 /* ---------- Galeri temizliği (kontrol ekranı + kalıcı silme) ---------- */
 if(typeof A.cleanGallery==="function"){
- window.nativeClean=n=>tell(n+" fotoğraf kalıcı olarak silindi patron.");
+ window.nativeClean=n=>tell(n>0?n+" öğe kalıcı olarak silindi patron.":"Silinecek bir şey kalmadı patron.");
  const _hc=handle;
  handle=async function(t,quick){t=String(t||"").trim();if(!t)return;const s=low(t);
-  if(!pendYN&&!pendInput&&/(sil|temizle)/.test(s)&&/(ekran görüntü|ekran resim|screenshot|whatsapp.{0,20}(fotoğraf|resim)|(fotoğraf|resim).{0,20}whatsapp|galeri)/.test(s)&&!/(gmail|mail)/.test(s)){
+  if(!pendYN&&!pendInput&&/(sil|temizle)/.test(s)&&/(ekran görüntü|ekran resim|screenshot|whatsapp.{0,25}(fotoğraf|resim|video)|(fotoğraf|resim|video).{0,25}whatsapp|galeri)/.test(s)&&!/(gmail|mail)/.test(s)){
    add(t,"u");
-   const ss=/(ekran görüntü|ekran resim|screenshot)/.test(s),wa=/whatsapp/.test(s);
-   const kinds=ss&&!wa?"ss":wa&&!ss?"wa":"ss,wa";
-   const what=kinds==="ss"?"ekran görüntülerini":kinds==="wa"?"WhatsApp'tan gelen fotoğrafları":"ekran görüntülerini ve WhatsApp'tan gelen fotoğrafları";
-   const m="Patron, "+what+" kontrol ekranında gösteriyorum. Saklamak istediklerine dokunup işaretini kaldır, sonra Sil'e bas. Silinenler kalıcı olarak silinir.";
+   const ss=/(ekran görüntü|ekran resim|screenshot)/.test(s),wa=/whatsapp/.test(s),vid=/video/.test(s),pic=/(fotoğraf|resim)/.test(s)||(wa&&!vid);
+   const K=[];if(ss||!wa)K.push("ss");if(wa&&pic)K.push("wa");if(wa&&vid)K.push("wv");if(/galeri/.test(s)&&!ss&&!wa)K.push("wa","wv");
+   const kinds=[...new Set(K)].join(",");
+   const NM2={ss:"ekran görüntüsü",wa:"WhatsApp fotoğrafı",wv:"WhatsApp videosu"};
+   let cnt=null;if(typeof A.galleryCount==="function"){try{const r=A.galleryCount(kinds);if(r!=="-1")cnt=JSON.parse(r)}catch(e){}}
+   if(cnt){const parts=Object.keys(cnt).map(k=>cnt[k]+" "+NM2[k]);const total=Object.values(cnt).reduce((a,b)=>a+b,0);
+    if(!total){tell("Patron, silinecek "+kinds.split(",").map(k=>NM2[k]).join(" ya da ")+" yok. Hepsi 0.");return}
+    askYN("Patron, "+parts.join(", ")+" var. Silmeden önce göstereyim mi? Evet dersen gösteririm, 'direk sil' dersen hemen silerim.",
+     ()=>{window.__galDirect=null;tell("Gösteriyorum patron. Saklamak istediklerine dokunup işaretini kaldır, sonra Sil'e bas.");A.cleanGallery2?A.cleanGallery2(kinds,false):A.cleanGallery(kinds)},
+     ()=>{window.__galDirect=null;tell("Tamam patron, silmedim.")});
+    window.__galDirect=()=>{tell("Siliyorum patron. Android son bir onay penceresi açacak, İzin ver'e bas.");A.cleanGallery2(kinds,true)};return}
+   const m="Patron, kontrol ekranında gösteriyorum. Saklamak istediklerine dokunup işaretini kaldır, sonra Sil'e bas. Silinenler kalıcı olarak silinir.";
    add(m,"g");say(m,()=>A.cleanGallery(kinds));return}
+  // "direk sil" cevabı
+  if(window.__galDirect&&/^(direk|direkt|doğrudan|hemen|göstermeden)?\s*sil/.test(s)){const f=window.__galDirect;window.__galDirect=null;pendYN=null;add(t,"u");return f()}
   return _hc(t,quick)};
 }
 
@@ -2315,6 +2349,7 @@ Aynı adımı tekrar tekrar yapma. Amaç tamamlandıysa hemen done ver.`;
 
 /* ---------- Soru bekliyorsam: evet/hayır cevabı her komuttan önce gelir ---------- */
 {const _hyn=handle;handle=async function(t,quick){const s=low(String(t||"").trim());
+ if(pendYN&&s&&window.__galDirect&&/^(direk|direkt|doğrudan|hemen|göstermeden)?\s*sil/.test(s)){const f=window.__galDirect;window.__galDirect=null;pendYN=null;add(t,"u");return f()}
  if(pendYN&&s){const p=pendYN;
   if(NO.test(s)){add(t,"u");pendYN=null;return p.no&&p.no()}
   if(YES.test(s)){add(t,"u");pendYN=null;return p.yes()}}
